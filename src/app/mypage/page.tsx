@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { apiClient, UserResponse, Balance } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { useAlert } from '@/components/AlertModal';
+import InfoModal from '@/components/InfoModal';
+import { useOnceModal } from '@/hooks/useOnceModal';
 
 interface Wallet {
   id: number;
@@ -30,6 +32,17 @@ export default function MyPagePage() {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [exchangeBalances, setExchangeBalances] = useState<Balance[]>([]);
   const { showAlert, AlertContainer } = useAlert();
+  const [showWalletWarningModal, setShowWalletWarningModal] = useState(false);
+  const [justCreatedWallet, setJustCreatedWallet] = useState(false);
+  const [shouldShowWalletWarning, markWalletWarningAsSeen] = useOnceModal('has_seen_wallet_warning');
+
+  // 지갑 생성 후 팝업 표시 체크
+  useEffect(() => {
+    if (justCreatedWallet && shouldShowWalletWarning) {
+      setShowWalletWarningModal(true);
+      setJustCreatedWallet(false);
+    }
+  }, [justCreatedWallet, shouldShowWalletWarning]);
 
   useEffect(() => {
     const fetchMyPageData = async () => {
@@ -115,6 +128,9 @@ export default function MyPagePage() {
       // 지갑 생성 후 다시 조회
       await fetchWalletData();
       showAlert('지갑이 성공적으로 생성되었습니다.', 'success');
+      
+      // 지갑 생성 후 경고 팝업 표시 (한번만)
+      setJustCreatedWallet(true);
     } catch (err) {
       console.error('지갑 생성 실패:', err);
       const errorMessage = err instanceof Error ? err.message : '지갑 생성에 실패했습니다.';
@@ -123,6 +139,11 @@ export default function MyPagePage() {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleCloseWalletWarning = () => {
+    setShowWalletWarningModal(false);
+    markWalletWarningAsSeen();
   };
 
   const copyToClipboard = (text: string) => {
@@ -265,6 +286,17 @@ export default function MyPagePage() {
         )}
       </div>
       <AlertContainer />
+      
+      {/* 지갑 생성 후 경고 팝업 */}
+      {showWalletWarningModal && (
+        <InfoModal
+          title="⚠️ 중요 안내"
+          message={`해당 지갑주소와 가상자산은 전부 가짜(모의 투자용)입니다.\n\n실제 자산을 입금하거나 송금하지 마세요!`}
+          type="warning"
+          isOpen={showWalletWarningModal}
+          onClose={handleCloseWalletWarning}
+        />
+      )}
     </main>
   );
 }

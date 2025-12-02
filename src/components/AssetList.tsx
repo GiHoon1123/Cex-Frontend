@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, memo, useCallback, useRef } from 'react';
-import { apiClient, AssetPosition } from '@/lib/api';
+import { apiClient, AssetPosition, Balance } from '@/lib/api';
 
 export default function AssetList() {
   const [positions, setPositions] = useState<AssetPosition[]>([]);
@@ -9,6 +9,7 @@ export default function AssetList() {
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [solPrice, setSolPrice] = useState<number | null>(null); // SOL 현재 가격 (USDT)
+  const hasInitiallyLoaded = useRef(false); // 초기 로드 완료 여부
 
   // Hydration 에러 방지: 클라이언트에서만 렌더링
   useEffect(() => {
@@ -74,14 +75,20 @@ export default function AssetList() {
       }
 
       try {
-        // solPrice 변경 시에는 로딩 상태를 표시하지 않음 (깜빡임 방지)
-        if (positions.length === 0) {
+        // 초기 로드 시에만 로딩 상태 표시 (주기적 갱신 시에는 로딩 표시 안 함)
+        if (!hasInitiallyLoaded.current) {
           setLoading(true);
         }
         setError(null);
         
         // balances API를 우선 사용 (USDT 포함 보장)
-        const balancesResponse = await apiClient.getBalances();
+        // 타임아웃 설정 (10초)
+        const balancesResponse = await Promise.race([
+          apiClient.getBalances(),
+          new Promise<{ balances: Balance[] }>((_, reject) => 
+            setTimeout(() => reject(new Error('잔고 조회 타임아웃')), 10000)
+          )
+        ]);
         
         // positions API에서 추가 정보 가져오기 (손익 등)
         let positionsData: AssetPosition[] = [];
@@ -93,6 +100,9 @@ export default function AssetList() {
           console.log('Positions API를 사용할 수 없어 Balances만 사용합니다.');
         }
         
+        // 이전 positions state에서 average_entry_price 가져오기 (positions API 실패 시 사용)
+        const prevPositionsMap = new Map(positions.map(p => [p.mint, p]));
+        
         // balances를 positions 형식으로 변환하고, positions API 데이터와 병합
         const convertedPositions: AssetPosition[] = balancesResponse.balances
           .map(b => {
@@ -100,6 +110,9 @@ export default function AssetList() {
             
             // positions API에서 해당 mint의 데이터 찾기
             const positionData = positionsData.find(p => p.mint === b.mint_address);
+            
+            // positions API 실패 시 이전 positions에서 average_entry_price 가져오기
+            const prevPosition = prevPositionsMap.get(b.mint_address);
             
             // SOL의 경우 바이낸스 가격 사용, USDT는 1, 그 외는 positions API 가격 사용
             let marketPrice: string | null = null;
@@ -121,10 +134,14 @@ export default function AssetList() {
             let finalPnl: string | null = positionData?.unrealized_pnl || null;
             let finalPnlPercent: string | null = positionData?.unrealized_pnl_percent || null;
             
+            // average_entry_price는 positions API에서 가져오거나, 실패 시 이전 positions에서 가져오기
+            const averageEntryPrice = positionData?.average_entry_price || prevPosition?.average_entry_price || null;
+            
             // SOL이고 평균 매수가가 있으면 재계산 (백엔드 값이 없거나 부정확할 수 있음)
-            if (b.mint_address === 'SOL' && positionData?.average_entry_price && balance > 0 && value) {
-              const averageEntryPrice = parseFloat(positionData.average_entry_price);
-              const totalBoughtCost = averageEntryPrice * balance;
+            // positions API 실패해도 이전에 받은 average_entry_price가 있으면 계산 시도
+            if (b.mint_address === 'SOL' && averageEntryPrice && balance > 0 && value) {
+              const avgPrice = parseFloat(averageEntryPrice);
+              const totalBoughtCost = avgPrice * balance;
               const currentValue = parseFloat(value);
               const pnl = currentValue - totalBoughtCost;
               finalPnl = pnl.toFixed(2);
@@ -136,14 +153,15 @@ export default function AssetList() {
               current_balance: balance.toString(),
               available: b.available,
               locked: b.locked,
-              average_entry_price: positionData?.average_entry_price || null,
-              total_bought_amount: positionData?.total_bought_amount || '0',
-              total_bought_cost: positionData?.total_bought_cost || '0',
+              // average_entry_price는 positions API에서 가져오거나, 실패 시 이전 positions에서 유지
+              average_entry_price: positionData?.average_entry_price || prevPosition?.average_entry_price || null,
+              total_bought_amount: positionData?.total_bought_amount || prevPosition?.total_bought_amount || '0',
+              total_bought_cost: positionData?.total_bought_cost || prevPosition?.total_bought_cost || '0',
               current_market_price: marketPrice,
               current_value: value,
               unrealized_pnl: finalPnl,
               unrealized_pnl_percent: finalPnlPercent,
-              trade_summary: positionData?.trade_summary || {
+              trade_summary: positionData?.trade_summary || prevPosition?.trade_summary || {
                 total_buy_trades: 0,
                 total_sell_trades: 0,
                 realized_pnl: '0',
@@ -202,6 +220,9 @@ export default function AssetList() {
           const allSame = updatedPositions.every((pos, index) => pos === prevPositions[index]);
           return allSame ? prevPositions : updatedPositions;
         });
+        
+        // 초기 로드 완료 표시
+        hasInitiallyLoaded.current = true;
       } catch (err) {
         console.error('자산 내역 로딩 실패:', err);
         let errorMessage = '자산 내역 로딩 실패';
@@ -214,13 +235,16 @@ export default function AssetList() {
             errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
           } else if (err.message.includes('500')) {
             errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-          } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+          } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('타임아웃')) {
             errorMessage = '네트워크 오류가 발생했습니다. 연결을 확인해주세요.';
           }
         }
         
+        // 에러 발생 시에도 로딩 상태 해제 (로그아웃 리다이렉트 전에 실행되도록)
+        setLoading(false);
         setError(errorMessage);
       } finally {
+        // finally에서도 로딩 상태 해제 (이중 안전장치)
         setLoading(false);
       }
     };

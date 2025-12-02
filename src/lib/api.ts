@@ -139,10 +139,19 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    const response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...options,
+        headers,
+      });
+    } catch (error) {
+      // 네트워크 오류는 그대로 throw
+      throw error;
+    }
+    
+    // 성공한 요청이 있으면 네트워크 오류 카운트 리셋
+    this.networkErrorCount = 0;
 
     // 401 에러 시 토큰 갱신 시도
     if (response.status === 401 && retry && accessToken) {

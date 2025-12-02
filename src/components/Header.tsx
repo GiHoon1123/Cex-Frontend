@@ -5,22 +5,41 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import LoginModal from './LoginModal';
 import SignupModal from './SignupModal';
+import InfoModal from './InfoModal';
 import { apiClient } from '@/lib/api';
+import { useOnceModal } from '@/hooks/useOnceModal';
 
 export default function Header() {
   const router = useRouter();
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [justLoggedIn, setJustLoggedIn] = useState(false);
+  const [showLoginInfoModal, setShowLoginInfoModal] = useState(false);
+  const [shouldShowLoginInfo, markLoginInfoAsSeen] = useOnceModal('has_seen_login_wallet_info');
 
   // 초기 로드 시 인증 상태 확인
   useEffect(() => {
     setIsAuthenticated(apiClient.isAuthenticated());
   }, []);
 
+  // 로그인 성공 후 팝업 표시 체크
+  useEffect(() => {
+    if (justLoggedIn && shouldShowLoginInfo) {
+      setShowLoginInfoModal(true);
+      setJustLoggedIn(false);
+    }
+  }, [justLoggedIn, shouldShowLoginInfo]);
+
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setShowLogin(false);
+    setJustLoggedIn(true);
+  };
+
+  const handleCloseLoginInfo = () => {
+    setShowLoginInfoModal(false);
+    markLoginInfoAsSeen();
   };
 
   const handleLogout = async () => {
@@ -111,6 +130,17 @@ export default function Header() {
             setShowSignup(false);
             setShowLogin(true);
           }}
+        />
+      )}
+
+      {/* 로그인 시 지갑 정보 안내 팝업 */}
+      {showLoginInfoModal && (
+        <InfoModal
+          title="모의 투자 안내"
+          message="마이페이지에서 지갑을 생성하면 모의 투자를 위한 지갑주소와 가상의 자산이 생성됩니다."
+          type="info"
+          isOpen={showLoginInfoModal}
+          onClose={handleCloseLoginInfo}
         />
       )}
     </>
