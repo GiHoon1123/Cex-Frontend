@@ -141,7 +141,17 @@ class ApiClient {
   private refreshPromise: Promise<void> | null = null;
 
   constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
+    // 클라이언트 사이드에서는 프로덕션 환경일 때 baseUrl을 무시하고 프록시 사용
+    // (빌드 타임 환경변수가 HTTP URL로 설정되어 있어도 프록시 사용)
+    if (typeof window !== "undefined") {
+      const isLocalhost = window.location.hostname === "localhost" || 
+                          window.location.hostname === "127.0.0.1";
+      // localhost가 아니면 빈 문자열로 설정 (프록시 사용)
+      this.baseUrl = isLocalhost ? baseUrl : "";
+    } else {
+      // 서버 사이드: 그대로 사용
+      this.baseUrl = baseUrl;
+    }
   }
 
   // 토큰 갱신
