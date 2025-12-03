@@ -169,24 +169,24 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
-    // Access Token 자동 추가 (인증이 필요한 요청)
-    const accessToken = TokenStorage.getAccessToken();
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...options.headers,
-    };
+      // Access Token 자동 추가 (인증이 필요한 요청)
+      const accessToken = TokenStorage.getAccessToken();
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string>),
+      };
 
-    // 인증이 필요한 엔드포인트에 Authorization 헤더 추가
-    // /api/auth/signup, /api/auth/signin, /api/auth/refresh, /api/auth/logout은 제외
-    if (
-      accessToken &&
-      !endpoint.includes("/auth/signup") &&
-      !endpoint.includes("/auth/signin") &&
-      !endpoint.includes("/auth/refresh") &&
-      !endpoint.includes("/auth/logout")
-    ) {
-      headers["Authorization"] = `Bearer ${accessToken}`;
-    }
+      // 인증이 필요한 엔드포인트에 Authorization 헤더 추가
+      // /api/auth/signup, /api/auth/signin, /api/auth/refresh, /api/auth/logout은 제외
+      if (
+        accessToken &&
+        !endpoint.includes("/auth/signup") &&
+        !endpoint.includes("/auth/signin") &&
+        !endpoint.includes("/auth/refresh") &&
+        !endpoint.includes("/auth/logout")
+      ) {
+        headers["Authorization"] = `Bearer ${accessToken}`;
+      }
 
     let response: Response;
     try {
@@ -198,9 +198,6 @@ class ApiClient {
       // 네트워크 오류는 그대로 throw
       throw error;
     }
-
-    // 성공한 요청이 있으면 네트워크 오류 카운트 리셋
-    this.networkErrorCount = 0;
 
     // 401 에러 시 토큰 갱신 시도
     if (response.status === 401 && retry && accessToken) {
