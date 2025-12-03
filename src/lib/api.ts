@@ -25,20 +25,23 @@ const getApiBaseUrl = (): string => {
 
 const API_BASE_URL = getApiBaseUrl();
 
-// 개발 환경에서 환경변수 로드 확인용 로그
-if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+// 환경변수 로드 확인용 로그 (개발 및 프로덕션 모두)
+if (typeof window !== "undefined") {
   console.log("[API Client] API_BASE_URL:", API_BASE_URL);
   console.log(
     "[API Client] NEXT_PUBLIC_API_URL:",
-    process.env.NEXT_PUBLIC_API_URL
+    process.env.NEXT_PUBLIC_API_URL || "NOT SET"
   );
   console.log("[API Client] NODE_ENV:", process.env.NODE_ENV);
 
   // 환경변수가 없으면 경고
   if (!process.env.NEXT_PUBLIC_API_URL) {
-    console.warn(
-      "[API Client] WARNING: NEXT_PUBLIC_API_URL 환경변수가 설정되지 않았습니다. 기본값을 사용합니다:",
+    console.error(
+      "[API Client] ERROR: NEXT_PUBLIC_API_URL 환경변수가 설정되지 않았습니다! 기본값을 사용합니다:",
       API_BASE_URL
+    );
+    console.error(
+      "[API Client] Vercel 환경변수 설정을 확인하세요: NEXT_PUBLIC_API_URL=http://52.79.139.149:3002"
     );
   }
 }
@@ -168,6 +171,9 @@ class ApiClient {
     retry: boolean = true
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    
+    // 디버깅: API 요청 URL 로그 출력
+    console.log(`[API Client] Request URL: ${url}`);
 
       // Access Token 자동 추가 (인증이 필요한 요청)
       const accessToken = TokenStorage.getAccessToken();
