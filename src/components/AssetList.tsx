@@ -225,27 +225,21 @@ export default function AssetList() {
         hasInitiallyLoaded.current = true;
       } catch (err) {
         console.error('자산 내역 로딩 실패:', err);
-        let errorMessage = '자산 내역 로딩 실패';
         
+        // 401 에러만 처리 (인증 문제)
         if (err instanceof Error) {
-          errorMessage = err.message;
-          
-          // 401 에러는 인증 문제
           if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-            errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
-          } else if (err.message.includes('500')) {
-            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-          } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError') || err.message.includes('타임아웃')) {
-            errorMessage = '네트워크 오류가 발생했습니다. 연결을 확인해주세요.';
+            setError('인증이 필요합니다. 다시 로그인해주세요.');
+            setLoading(false);
+            return;
           }
         }
         
-        // 에러 발생 시에도 로딩 상태 해제 (로그아웃 리다이렉트 전에 실행되도록)
-        setLoading(false);
-        setError(errorMessage);
+        // 백엔드 다운 시 에러 메시지 대신 로딩중 유지 (프론트 다운 방지)
+        // setError는 호출하지 않음 - 로딩 상태 유지
       } finally {
-        // finally에서도 로딩 상태 해제 (이중 안전장치)
-        setLoading(false);
+        // 백엔드 실패 시에는 로딩 해제하지 않음 (로딩중으로 표시)
+        // setLoading(false); - 주석 처리하여 로딩 상태 유지
       }
     };
 

@@ -1,8 +1,51 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+// 환경변수에서 API URL 가져오기
+// Next.js는 빌드 타임에 NEXT_PUBLIC_ 접두사가 있는 환경변수를 클라이언트 번들에 주입합니다
+// .env.development (개발) 또는 .env.production (프로덕션) 파일에서 자동 로드
+const getApiBaseUrl = (): string => {
+  // 클라이언트 사이드에서 환경변수 접근
+  if (typeof window !== "undefined") {
+    // NEXT_PUBLIC_ 접두사가 있으면 클라이언트에서 접근 가능 (빌드 타임에 주입됨)
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl) {
+      return envUrl;
+    }
+  }
+
+  // 서버 사이드에서 환경변수 접근 (SSR)
+  if (typeof process !== "undefined") {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl) {
+      return envUrl;
+    }
+  }
+
+  // 기본값 (개발 환경)
+  return "http://localhost:3002";
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// 개발 환경에서 환경변수 로드 확인용 로그
+if (typeof window !== "undefined" && process.env.NODE_ENV === "development") {
+  console.log("[API Client] API_BASE_URL:", API_BASE_URL);
+  console.log(
+    "[API Client] NEXT_PUBLIC_API_URL:",
+    process.env.NEXT_PUBLIC_API_URL
+  );
+  console.log("[API Client] NODE_ENV:", process.env.NODE_ENV);
+
+  // 환경변수가 없으면 경고
+  if (!process.env.NEXT_PUBLIC_API_URL) {
+    console.warn(
+      "[API Client] WARNING: NEXT_PUBLIC_API_URL 환경변수가 설정되지 않았습니다. 기본값을 사용합니다:",
+      API_BASE_URL
+    );
+  }
+}
 
 // 토큰 저장소 키
-const ACCESS_TOKEN_KEY = 'access_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
+const ACCESS_TOKEN_KEY = "access_token";
+const REFRESH_TOKEN_KEY = "refresh_token";
 
 // API 타입 정의
 export interface SignupRequest {
@@ -53,23 +96,23 @@ export interface LogoutRequest {
 // 토큰 저장소 관리
 class TokenStorage {
   static getAccessToken(): string | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     return localStorage.getItem(ACCESS_TOKEN_KEY);
   }
 
   static getRefreshToken(): string | null {
-    if (typeof window === 'undefined') return null;
+    if (typeof window === "undefined") return null;
     return localStorage.getItem(REFRESH_TOKEN_KEY);
   }
 
   static setTokens(accessToken: string, refreshToken: string): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 
   static clearTokens(): void {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
   }
@@ -93,14 +136,14 @@ class ApiClient {
   private async refreshAccessToken(): Promise<void> {
     const refreshToken = TokenStorage.getRefreshToken();
     if (!refreshToken) {
-      throw new Error('No refresh token available');
+      throw new Error("No refresh token available");
     }
 
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
@@ -108,7 +151,7 @@ class ApiClient {
       if (!response.ok) {
         // Refresh 실패 시 로그아웃 처리
         TokenStorage.clearTokens();
-        throw new Error('Token refresh failed');
+        throw new Error("Token refresh failed");
       }
 
       const data: RefreshTokenResponse = await response.json();
@@ -125,18 +168,24 @@ class ApiClient {
     retry: boolean = true
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+
     // Access Token 자동 추가 (인증이 필요한 요청)
     const accessToken = TokenStorage.getAccessToken();
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     };
 
     // 인증이 필요한 엔드포인트에 Authorization 헤더 추가
     // /api/auth/signup, /api/auth/signin, /api/auth/refresh, /api/auth/logout은 제외
-    if (accessToken && !endpoint.includes('/auth/signup') && !endpoint.includes('/auth/signin') && !endpoint.includes('/auth/refresh') && !endpoint.includes('/auth/logout')) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+    if (
+      accessToken &&
+      !endpoint.includes("/auth/signup") &&
+      !endpoint.includes("/auth/signin") &&
+      !endpoint.includes("/auth/refresh") &&
+      !endpoint.includes("/auth/logout")
+    ) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
     }
 
     let response: Response;
@@ -149,7 +198,7 @@ class ApiClient {
       // 네트워크 오류는 그대로 throw
       throw error;
     }
-    
+
     // 성공한 요청이 있으면 네트워크 오류 카운트 리셋
     this.networkErrorCount = 0;
 
@@ -172,7 +221,7 @@ class ApiClient {
         return this.request<T>(endpoint, options, false);
       } catch (error) {
         // 갱신 실패 시 에러 발생
-        throw new Error('Authentication failed. Please login again.');
+        throw new Error("Authentication failed. Please login again.");
       } finally {
         this.isRefreshing = false;
         this.refreshPromise = null;
@@ -196,22 +245,22 @@ class ApiClient {
 
   // 회원가입
   async signup(data: SignupRequest): Promise<SignupResponse> {
-    return this.request<SignupResponse>('/api/auth/signup', {
-      method: 'POST',
+    return this.request<SignupResponse>("/api/auth/signup", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
 
   // 로그인
   async signin(data: SigninRequest): Promise<SigninResponse> {
-    const response = await this.request<SigninResponse>('/api/auth/signin', {
-      method: 'POST',
+    const response = await this.request<SigninResponse>("/api/auth/signin", {
+      method: "POST",
       body: JSON.stringify(data),
     });
-    
+
     // 토큰 저장
     TokenStorage.setTokens(response.access_token, response.refresh_token);
-    
+
     return response;
   }
 
@@ -219,13 +268,16 @@ class ApiClient {
   async refresh(): Promise<RefreshTokenResponse> {
     const refreshToken = TokenStorage.getRefreshToken();
     if (!refreshToken) {
-      throw new Error('No refresh token available');
+      throw new Error("No refresh token available");
     }
 
-    const response = await this.request<RefreshTokenResponse>('/api/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
+    const response = await this.request<RefreshTokenResponse>(
+      "/api/auth/refresh",
+      {
+        method: "POST",
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      }
+    );
 
     // 새 토큰 저장
     TokenStorage.setTokens(response.access_token, response.refresh_token);
@@ -236,16 +288,16 @@ class ApiClient {
   // 로그아웃
   async logout(): Promise<void> {
     const refreshToken = TokenStorage.getRefreshToken();
-    
+
     if (refreshToken) {
       try {
-        await this.request('/api/auth/logout', {
-          method: 'POST',
+        await this.request("/api/auth/logout", {
+          method: "POST",
           body: JSON.stringify({ refresh_token: refreshToken }),
         });
       } catch (error) {
         // 로그아웃 실패해도 클라이언트에서는 토큰 제거
-        console.error('Logout request failed:', error);
+        console.error("Logout request failed:", error);
       }
     }
 
@@ -260,96 +312,108 @@ class ApiClient {
 
   // 유저 정보 조회
   async getMe(): Promise<UserResponse> {
-    return this.request<UserResponse>('/api/auth/me', {
-      method: 'GET',
+    return this.request<UserResponse>("/api/auth/me", {
+      method: "GET",
     });
   }
 
   // 지갑 관련 API
   async getUserWallets(): Promise<WalletsResponse> {
-    return this.request<WalletsResponse>('/api/wallets/my', {
-      method: 'GET',
+    return this.request<WalletsResponse>("/api/wallets/my", {
+      method: "GET",
     });
   }
 
   async createWallet(): Promise<CreateWalletResponse> {
-    return this.request<CreateWalletResponse>('/api/wallets', {
-      method: 'POST',
+    return this.request<CreateWalletResponse>("/api/wallets", {
+      method: "POST",
     });
   }
 
   async getWalletBalance(walletId: number): Promise<BalanceResponse> {
     return this.request<BalanceResponse>(`/api/wallets/${walletId}/balance`, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   // CEX Positions API
   async getPositions(): Promise<AllPositionsResponse> {
-    return this.request<AllPositionsResponse>('/api/cex/positions', {
-      method: 'GET',
+    return this.request<AllPositionsResponse>("/api/cex/positions", {
+      method: "GET",
     });
   }
 
   // CEX Balances API (폴백용)
   async getBalances(): Promise<{ balances: Balance[] }> {
-    return this.request<{ balances: Balance[] }>('/api/cex/balances', {
-      method: 'GET',
+    return this.request<{ balances: Balance[] }>("/api/cex/balances", {
+      method: "GET",
     });
   }
 
   async getPosition(mint: string): Promise<AssetPositionResponse> {
     return this.request<AssetPositionResponse>(`/api/cex/positions/${mint}`, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   // CEX Orders API
   async createOrder(request: CreateOrderRequest): Promise<Order> {
-    return this.request<Order>('/api/cex/orders', {
-      method: 'POST',
+    return this.request<Order>("/api/cex/orders", {
+      method: "POST",
       body: JSON.stringify(request),
     });
   }
 
-  async getMyOrders(status?: string, limit?: number, offset?: number): Promise<Order[]> {
+  async getMyOrders(
+    status?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<Order[]> {
     const params = new URLSearchParams();
-    if (status) params.append('status', status);
-    if (limit) params.append('limit', limit.toString());
-    if (offset) params.append('offset', offset.toString());
-    
+    if (status) params.append("status", status);
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+
     const queryString = params.toString();
-    const endpoint = `/api/cex/orders/my${queryString ? `?${queryString}` : ''}`;
-    
+    const endpoint = `/api/cex/orders/my${
+      queryString ? `?${queryString}` : ""
+    }`;
+
     return this.request<Order[]>(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   async cancelOrder(orderId: number): Promise<Order> {
     return this.request<Order>(`/api/cex/orders/${orderId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
   async getOrder(orderId: number): Promise<Order> {
     return this.request<Order>(`/api/cex/orders/${orderId}`, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   // CEX Trades API
-  async getMyTrades(mint?: string, limit?: number, offset?: number): Promise<Trade[]> {
+  async getMyTrades(
+    mint?: string,
+    limit?: number,
+    offset?: number
+  ): Promise<Trade[]> {
     const params = new URLSearchParams();
-    if (mint) params.append('mint', mint);
-    if (limit) params.append('limit', limit.toString());
-    if (offset) params.append('offset', offset.toString());
-    
+    if (mint) params.append("mint", mint);
+    if (limit) params.append("limit", limit.toString());
+    if (offset) params.append("offset", offset.toString());
+
     const queryString = params.toString();
-    const endpoint = `/api/cex/trades/my${queryString ? `?${queryString}` : ''}`;
-    
+    const endpoint = `/api/cex/trades/my${
+      queryString ? `?${queryString}` : ""
+    }`;
+
     return this.request<Trade[]>(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 }
@@ -420,8 +484,8 @@ export interface Balance {
 
 // CEX Orders 타입
 export interface CreateOrderRequest {
-  order_type: 'buy' | 'sell';
-  order_side: 'limit' | 'market';
+  order_type: "buy" | "sell";
+  order_side: "limit" | "market";
   base_mint: string;
   quote_mint?: string;
   price?: string; // 지정가 주문만
@@ -440,7 +504,7 @@ export interface Order {
   amount: string;
   filled_amount: string;
   filled_quote_amount: string;
-  status: 'pending' | 'partial' | 'filled' | 'cancelled';
+  status: "pending" | "partial" | "filled" | "cancelled";
   created_at: string;
   updated_at: string;
 }
@@ -459,4 +523,3 @@ export interface Trade {
 
 export const apiClient = new ApiClient(API_BASE_URL);
 export { TokenStorage };
-

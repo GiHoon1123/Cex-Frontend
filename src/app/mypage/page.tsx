@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { apiClient, UserResponse, Balance } from '@/lib/api';
-import { useRouter } from 'next/navigation';
-import { useAlert } from '@/components/AlertModal';
-import InfoModal from '@/components/InfoModal';
-import { useOnceModal } from '@/hooks/useOnceModal';
+import { useAlert } from "@/components/AlertModal";
+import InfoModal from "@/components/InfoModal";
+import { useOnceModal } from "@/hooks/useOnceModal";
+import { apiClient, Balance, UserResponse } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 interface Wallet {
   id: number;
@@ -34,7 +34,9 @@ export default function MyPagePage() {
   const { showAlert, AlertContainer } = useAlert();
   const [showWalletWarningModal, setShowWalletWarningModal] = useState(false);
   const [justCreatedWallet, setJustCreatedWallet] = useState(false);
-  const [shouldShowWalletWarning, markWalletWarningAsSeen] = useOnceModal('has_seen_wallet_warning');
+  const [shouldShowWalletWarning, markWalletWarningAsSeen] = useOnceModal(
+    "has_seen_wallet_warning"
+  );
 
   // 지갑 생성 후 팝업 표시 체크
   useEffect(() => {
@@ -47,7 +49,7 @@ export default function MyPagePage() {
   useEffect(() => {
     const fetchMyPageData = async () => {
       if (!apiClient.isAuthenticated()) {
-        router.push('/');
+        router.push("/");
         return;
       }
 
@@ -63,23 +65,26 @@ export default function MyPagePage() {
         const balancesResponse = await apiClient.getBalances();
         setExchangeBalances(balancesResponse.balances);
       } catch (err) {
-        console.error('마이페이지 데이터 로딩 실패:', err);
-        let errorMessage = err instanceof Error ? err.message : '데이터 로딩 실패';
-        
+        console.error("마이페이지 데이터 로딩 실패:", err);
+
+        // 401 에러만 처리 (인증 문제)
         if (err instanceof Error) {
-          if (err.message.includes('401') || err.message.includes('Unauthorized') || err.message.includes('Missing authorization header')) {
-            errorMessage = '인증이 필요합니다. 다시 로그인해주세요.';
+          if (
+            err.message.includes("401") ||
+            err.message.includes("Unauthorized") ||
+            err.message.includes("Missing authorization header")
+          ) {
             apiClient.logout();
-            router.push('/');
-          } else if (err.message.includes('500')) {
-            errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-          } else if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-            errorMessage = '네트워크 오류가 발생했습니다. 연결을 확인해주세요.';
+            router.push("/");
+            return;
           }
         }
-        setError(errorMessage);
+
+        // 백엔드 다운 시 에러 메시지 대신 로딩중 유지 (프론트 다운 방지)
+        // setError는 호출하지 않음 - 로딩 상태 유지
       } finally {
-        setLoading(false);
+        // 백엔드 실패 시에도 로딩 해제하지 않음 (로딩중으로 표시)
+        // setLoading(false);
       }
     };
 
@@ -96,7 +101,7 @@ export default function MyPagePage() {
       setError(null);
       // 내 지갑 목록 조회
       const walletsResponse = await apiClient.getUserWallets();
-      
+
       if (walletsResponse.wallets && walletsResponse.wallets.length > 0) {
         // 1:1 관계이므로 첫 번째 지갑만 사용
         const myWallet = walletsResponse.wallets[0];
@@ -107,8 +112,10 @@ export default function MyPagePage() {
         setBalance(balanceResponse);
       }
     } catch (err) {
-      console.error('지갑 정보 조회 실패:', err);
-      setError(err instanceof Error ? err.message : '지갑 정보를 불러올 수 없습니다.');
+      console.error("지갑 정보 조회 실패:", err);
+      setError(
+        err instanceof Error ? err.message : "지갑 정보를 불러올 수 없습니다."
+      );
     } finally {
       setLoading(false);
     }
@@ -116,7 +123,7 @@ export default function MyPagePage() {
 
   const handleCreateWallet = async () => {
     if (!apiClient.isAuthenticated()) {
-      setError('로그인이 필요합니다.');
+      setError("로그인이 필요합니다.");
       return;
     }
 
@@ -127,15 +134,16 @@ export default function MyPagePage() {
       await apiClient.createWallet();
       // 지갑 생성 후 다시 조회
       await fetchWalletData();
-      showAlert('지갑이 성공적으로 생성되었습니다.', 'success');
-      
+      showAlert("지갑이 성공적으로 생성되었습니다.", "success");
+
       // 지갑 생성 후 경고 팝업 표시 (한번만)
       setJustCreatedWallet(true);
     } catch (err) {
-      console.error('지갑 생성 실패:', err);
-      const errorMessage = err instanceof Error ? err.message : '지갑 생성에 실패했습니다.';
+      console.error("지갑 생성 실패:", err);
+      const errorMessage =
+        err instanceof Error ? err.message : "지갑 생성에 실패했습니다.";
       setError(errorMessage);
-      showAlert(errorMessage, 'error');
+      showAlert(errorMessage, "error");
     } finally {
       setCreating(false);
     }
@@ -148,7 +156,7 @@ export default function MyPagePage() {
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('복사되었습니다!');
+    alert("복사되었습니다!");
   };
 
   if (loading) {
@@ -173,13 +181,13 @@ export default function MyPagePage() {
             <div>
               <label className="text-sm text-gray-400">이메일</label>
               <div className="text-white mt-1">
-                {user?.email || '정보 없음'}
+                {user?.email || "정보 없음"}
               </div>
             </div>
             <div>
               <label className="text-sm text-gray-400">사용자명</label>
               <div className="text-white mt-1">
-                {user?.username || '정보 없음'}
+                {user?.username || "정보 없음"}
               </div>
             </div>
             {user?.created_at && (
@@ -215,7 +223,7 @@ export default function MyPagePage() {
               <div>
                 <label className="text-sm text-gray-400">생성일</label>
                 <div className="text-white mt-1">
-                  {new Date(wallet.created_at).toLocaleString('ko-KR')}
+                  {new Date(wallet.created_at).toLocaleString("ko-KR")}
                 </div>
               </div>
             </div>
@@ -227,7 +235,7 @@ export default function MyPagePage() {
                 disabled={creating}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {creating ? '생성 중...' : '지갑 생성하기'}
+                {creating ? "생성 중..." : "지갑 생성하기"}
               </button>
             </div>
           )}
@@ -238,37 +246,56 @@ export default function MyPagePage() {
           <h2 className="text-xl font-semibold text-white mb-4">자산 내역</h2>
           <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 space-y-4">
             {exchangeBalances.length === 0 ? (
-              <div className="text-gray-400 text-center py-4">보유한 자산이 없습니다.</div>
+              <div className="text-gray-400 text-center py-4">
+                보유한 자산이 없습니다.
+              </div>
             ) : (
               exchangeBalances
-                .filter(b => b.mint_address === 'SOL' || b.mint_address === 'USDT')
+                .filter(
+                  (b) => b.mint_address === "SOL" || b.mint_address === "USDT"
+                )
                 .sort((a, b) => {
                   // USDT를 먼저, 그 다음 SOL
-                  if (a.mint_address === 'USDT') return -1;
-                  if (b.mint_address === 'USDT') return 1;
+                  if (a.mint_address === "USDT") return -1;
+                  if (b.mint_address === "USDT") return 1;
                   return 0;
                 })
                 .map((balance) => {
-                  const totalBalance = parseFloat(balance.available) + parseFloat(balance.locked);
+                  const totalBalance =
+                    parseFloat(balance.available) + parseFloat(balance.locked);
                   return (
-                    <div key={balance.mint_address} className="border-b border-gray-700 pb-4 last:border-0 last:pb-0">
+                    <div
+                      key={balance.mint_address}
+                      className="border-b border-gray-700 pb-4 last:border-0 last:pb-0"
+                    >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-white font-semibold">{balance.mint_address}</span>
+                        <span className="text-white font-semibold">
+                          {balance.mint_address}
+                        </span>
                         <span className="text-white font-medium">
-                          {totalBalance.toFixed(balance.mint_address === 'USDT' ? 2 : 4)} {balance.mint_address}
+                          {totalBalance.toFixed(
+                            balance.mint_address === "USDT" ? 2 : 4
+                          )}{" "}
+                          {balance.mint_address}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-400">사용 가능</span>
                         <span className="text-gray-300">
-                          {parseFloat(balance.available).toFixed(balance.mint_address === 'USDT' ? 2 : 4)} {balance.mint_address}
+                          {parseFloat(balance.available).toFixed(
+                            balance.mint_address === "USDT" ? 2 : 4
+                          )}{" "}
+                          {balance.mint_address}
                         </span>
                       </div>
                       {parseFloat(balance.locked) > 0 && (
                         <div className="flex items-center justify-between text-sm mt-1">
                           <span className="text-gray-400">잠김</span>
                           <span className="text-gray-300">
-                            {parseFloat(balance.locked).toFixed(balance.mint_address === 'USDT' ? 2 : 4)} {balance.mint_address}
+                            {parseFloat(balance.locked).toFixed(
+                              balance.mint_address === "USDT" ? 2 : 4
+                            )}{" "}
+                            {balance.mint_address}
                           </span>
                         </div>
                       )}
@@ -286,7 +313,7 @@ export default function MyPagePage() {
         )}
       </div>
       <AlertContainer />
-      
+
       {/* 지갑 생성 후 경고 팝업 */}
       {showWalletWarningModal && (
         <InfoModal
@@ -300,4 +327,3 @@ export default function MyPagePage() {
     </main>
   );
 }
-

@@ -32,9 +32,11 @@ export default function MyTrades() {
       setTrades(sortedTrades);
     } catch (err) {
       console.error('체결 내역 가져오기 실패:', err);
-      setError(err instanceof Error ? err.message : '체결 내역을 불러올 수 없습니다.');
+      // 백엔드 다운 시 에러 메시지 대신 로딩중 유지 (프론트 다운 방지)
+      // setError는 호출하지 않음 - 로딩 상태 유지
     } finally {
-      setLoading(false);
+      // 백엔드 실패 시에도 로딩 해제하지 않음 (로딩중으로 표시)
+      // setLoading(false);
     }
   };
 
