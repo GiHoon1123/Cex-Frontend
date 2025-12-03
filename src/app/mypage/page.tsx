@@ -64,6 +64,7 @@ export default function MyPagePage() {
         // 3. 거래소 잔고 가져오기
         const balancesResponse = await apiClient.getBalances();
         setExchangeBalances(balancesResponse.balances);
+        setLoading(false); // 성공 시 로딩 해제
       } catch (err) {
         console.error("마이페이지 데이터 로딩 실패:", err);
 
@@ -80,11 +81,24 @@ export default function MyPagePage() {
           }
         }
 
-        // 백엔드 다운 시 에러 메시지 대신 로딩중 유지 (프론트 다운 방지)
-        // setError는 호출하지 않음 - 로딩 상태 유지
-      } finally {
-        // 백엔드 실패 시에도 로딩 해제하지 않음 (로딩중으로 표시)
-        // setLoading(false);
+        // 네트워크 에러나 타임아웃인 경우에만 로딩 유지
+        // 그 외의 경우(예: 500 에러 등)에는 로딩 해제
+        if (err instanceof Error) {
+          const isNetworkError =
+            err.message.includes("fetch") ||
+            err.message.includes("network") ||
+            err.message.includes("타임아웃") ||
+            err.message.includes("timeout");
+
+          if (!isNetworkError) {
+            // 네트워크 에러가 아닌 경우 로딩 해제
+            setLoading(false);
+          }
+          // 네트워크 에러인 경우 로딩 상태 유지 (재시도 가능)
+        } else {
+          // 알 수 없는 에러인 경우 로딩 해제
+          setLoading(false);
+        }
       }
     };
 
