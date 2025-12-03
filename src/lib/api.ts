@@ -179,16 +179,16 @@ class ApiClient {
     options: RequestInit = {},
     retry: boolean = true
   ): Promise<T> {
-    // 프로덕션 환경에서 프록시 사용: /api/auth/signup -> /api/proxy/auth/signup
+    // 클라이언트 사이드에서 localhost가 아니면 항상 프록시 사용 (Mixed Content 방지)
     let url: string;
     
-    // 클라이언트 사이드에서 localhost가 아니면 항상 프록시 사용
     if (typeof window !== "undefined") {
       const isLocalhost = window.location.hostname === "localhost" || 
                           window.location.hostname === "127.0.0.1";
       
       if (!isLocalhost) {
-        // 프로덕션: 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
+        // 프로덕션: 항상 프록시 사용 (절대 경로 사용 금지)
+        // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
         const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
         url = proxyPath;
       } else {
@@ -196,7 +196,7 @@ class ApiClient {
         url = `${this.baseUrl}${endpoint}`;
       }
     } else {
-      // 서버 사이드: 직접 접근
+      // 서버 사이드: 직접 접근 (환경변수 사용)
       url = `${this.baseUrl}${endpoint}`;
     }
 
@@ -204,6 +204,12 @@ class ApiClient {
     console.log(`[API Client] Request URL: ${url}`);
     console.log(`[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`);
     console.log(`[API Client] endpoint: ${endpoint}`);
+    console.log(`[API Client] hostname: ${typeof window !== "undefined" ? window.location.hostname : "server"}`);
+    
+    // 프로덕션에서 HTTP URL 사용 시도 감지
+    if (typeof window !== "undefined" && url.startsWith("http://")) {
+      console.error(`[API Client] ERROR: 프로덕션에서 HTTP URL 사용 시도! 프록시를 사용해야 합니다: ${url}`);
+    }
 
     // Access Token 자동 추가 (인증이 필요한 요청)
     const accessToken = TokenStorage.getAccessToken();
