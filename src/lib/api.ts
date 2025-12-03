@@ -2,24 +2,32 @@
 // Next.js는 빌드 타임에 NEXT_PUBLIC_ 접두사가 있는 환경변수를 클라이언트 번들에 주입합니다
 // .env.development (개발) 또는 .env.production (프로덕션) 파일에서 자동 로드
 const getApiBaseUrl = (): string => {
-  // 클라이언트 사이드에서 환경변수 접근
+  // 클라이언트 사이드: Next.js API Routes 프록시 사용 (Mixed Content 방지)
   if (typeof window !== "undefined") {
-    // NEXT_PUBLIC_ 접두사가 있으면 클라이언트에서 접근 가능 (빌드 타임에 주입됨)
+    // 프로덕션 환경에서는 프록시 사용, 개발 환경에서는 직접 접근
+    const useProxy = process.env.NODE_ENV === "production";
+    if (useProxy) {
+      return ""; // 상대 경로로 프록시 사용 (/api/proxy/...)
+    }
+    
+    // 개발 환경: 환경변수 또는 기본값 사용
     const envUrl = process.env.NEXT_PUBLIC_API_URL;
     if (envUrl) {
       return envUrl;
     }
+    return "http://localhost:3002";
   }
 
-  // 서버 사이드에서 환경변수 접근 (SSR)
+  // 서버 사이드: 직접 백엔드 접근 (환경변수 사용)
   if (typeof process !== "undefined") {
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
     if (envUrl) {
       return envUrl;
     }
+    return "http://localhost:3002";
   }
 
-  // 기본값 (개발 환경)
+  // 기본값
   return "http://localhost:3002";
 };
 
@@ -170,29 +178,37 @@ class ApiClient {
     options: RequestInit = {},
     retry: boolean = true
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // 프로덕션 환경에서 프록시 사용: /api/auth/signup -> /api/proxy/auth/signup
+    let url: string;
+    if (typeof window !== "undefined" && process.env.NODE_ENV === "production" && !this.baseUrl) {
+      // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
+      const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
+      url = proxyPath;
+    } else {
+      url = `${this.baseUrl}${endpoint}`;
+    }
     
     // 디버깅: API 요청 URL 로그 출력
     console.log(`[API Client] Request URL: ${url}`);
 
-      // Access Token 자동 추가 (인증이 필요한 요청)
-      const accessToken = TokenStorage.getAccessToken();
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(options.headers as Record<string, string>),
-      };
+    // Access Token 자동 추가 (인증이 필요한 요청)
+    const accessToken = TokenStorage.getAccessToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
 
-      // 인증이 필요한 엔드포인트에 Authorization 헤더 추가
-      // /api/auth/signup, /api/auth/signin, /api/auth/refresh, /api/auth/logout은 제외
-      if (
-        accessToken &&
-        !endpoint.includes("/auth/signup") &&
-        !endpoint.includes("/auth/signin") &&
-        !endpoint.includes("/auth/refresh") &&
-        !endpoint.includes("/auth/logout")
-      ) {
-        headers["Authorization"] = `Bearer ${accessToken}`;
-      }
+    // 인증이 필요한 엔드포인트에 Authorization 헤더 추가
+    // /api/auth/signup, /api/auth/signin, /api/auth/refresh, /api/auth/logout은 제외
+    if (
+      accessToken &&
+      !endpoint.includes("/auth/signup") &&
+      !endpoint.includes("/auth/signin") &&
+      !endpoint.includes("/auth/refresh") &&
+      !endpoint.includes("/auth/logout")
+    ) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+    }
 
     let response: Response;
     try {
