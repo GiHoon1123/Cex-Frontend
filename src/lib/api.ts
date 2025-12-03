@@ -4,12 +4,15 @@
 const getApiBaseUrl = (): string => {
   // 클라이언트 사이드: Next.js API Routes 프록시 사용 (Mixed Content 방지)
   if (typeof window !== "undefined") {
-    // 프로덕션 환경에서는 프록시 사용, 개발 환경에서는 직접 접근
-    const useProxy = process.env.NODE_ENV === "production";
-    if (useProxy) {
+    // Vercel 배포 환경에서는 항상 프록시 사용 (HTTPS -> HTTP Mixed Content 방지)
+    // localhost가 아니면 프록시 사용
+    const isProduction = window.location.hostname !== "localhost" && 
+                         window.location.hostname !== "127.0.0.1";
+    
+    if (isProduction) {
       return ""; // 상대 경로로 프록시 사용 (/api/proxy/...)
     }
-    
+
     // 개발 환경: 환경변수 또는 기본값 사용
     const envUrl = process.env.NEXT_PUBLIC_API_URL;
     if (envUrl) {
@@ -20,7 +23,8 @@ const getApiBaseUrl = (): string => {
 
   // 서버 사이드: 직접 백엔드 접근 (환경변수 사용)
   if (typeof process !== "undefined") {
-    const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
+    const envUrl =
+      process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
     if (envUrl) {
       return envUrl;
     }
@@ -180,7 +184,8 @@ class ApiClient {
   ): Promise<T> {
     // 프로덕션 환경에서 프록시 사용: /api/auth/signup -> /api/proxy/auth/signup
     let url: string;
-    if (typeof window !== "undefined" && process.env.NODE_ENV === "production" && !this.baseUrl) {
+    if (typeof window !== "undefined" && !this.baseUrl) {
+      // baseUrl이 빈 문자열이면 프록시 사용
       // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
       const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
       url = proxyPath;
@@ -190,6 +195,7 @@ class ApiClient {
     
     // 디버깅: API 요청 URL 로그 출력
     console.log(`[API Client] Request URL: ${url}`);
+    console.log(`[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`);
 
     // Access Token 자동 추가 (인증이 필요한 요청)
     const accessToken = TokenStorage.getAccessToken();
