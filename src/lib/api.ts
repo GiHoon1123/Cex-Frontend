@@ -40,14 +40,18 @@ const API_BASE_URL = getApiBaseUrl();
 
 // 환경변수 로드 확인용 로그 (개발 및 프로덕션 모두)
 if (typeof window !== "undefined") {
-  const isLocalhost = window.location.hostname === "localhost" || 
-                      window.location.hostname === "127.0.0.1";
-  
-  console.log("[API Client] API_BASE_URL:", API_BASE_URL || "(empty - using proxy)");
+  const isLocalhost =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+
+  console.log(
+    "[API Client] API_BASE_URL:",
+    API_BASE_URL || "(empty - using proxy)"
+  );
   console.log("[API Client] hostname:", window.location.hostname);
   console.log("[API Client] isLocalhost:", isLocalhost);
   console.log("[API Client] NODE_ENV:", process.env.NODE_ENV);
-  
+
   if (!isLocalhost && API_BASE_URL) {
     console.warn(
       "[API Client] WARNING: 프로덕션 환경에서 직접 백엔드 접근 시도 감지! 프록시를 사용해야 합니다."
@@ -144,8 +148,9 @@ class ApiClient {
     // 클라이언트 사이드에서는 프로덕션 환경일 때 baseUrl을 무시하고 프록시 사용
     // (빌드 타임 환경변수가 HTTP URL로 설정되어 있어도 프록시 사용)
     if (typeof window !== "undefined") {
-      const isLocalhost = window.location.hostname === "localhost" || 
-                          window.location.hostname === "127.0.0.1";
+      const isLocalhost =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
       // localhost가 아니면 빈 문자열로 설정 (프록시 사용)
       this.baseUrl = isLocalhost ? baseUrl : "";
     } else {
@@ -161,8 +166,27 @@ class ApiClient {
       throw new Error("No refresh token available");
     }
 
+    // request() 메서드와 동일한 URL 생성 로직 사용 (프록시 지원)
+    let url: string;
+    if (typeof window !== "undefined") {
+      const isLocalhost =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+
+      if (!isLocalhost) {
+        // 프로덕션: 프록시 사용
+        url = "/api/proxy/auth/refresh";
+      } else {
+        // 개발 환경: 직접 접근
+        url = `${this.baseUrl}/api/auth/refresh`;
+      }
+    } else {
+      // 서버 사이드: 직접 접근
+      url = `${this.baseUrl}/api/auth/refresh`;
+    }
+
     try {
-      const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+      const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -191,11 +215,12 @@ class ApiClient {
   ): Promise<T> {
     // 클라이언트 사이드에서 localhost가 아니면 항상 프록시 사용 (Mixed Content 방지)
     let url: string;
-    
+
     if (typeof window !== "undefined") {
-      const isLocalhost = window.location.hostname === "localhost" || 
-                          window.location.hostname === "127.0.0.1";
-      
+      const isLocalhost =
+        window.location.hostname === "localhost" ||
+        window.location.hostname === "127.0.0.1";
+
       if (!isLocalhost) {
         // 프로덕션: 항상 프록시 사용 (절대 경로 사용 금지)
         // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
@@ -212,13 +237,21 @@ class ApiClient {
 
     // 디버깅: API 요청 URL 로그 출력
     console.log(`[API Client] Request URL: ${url}`);
-    console.log(`[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`);
+    console.log(
+      `[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`
+    );
     console.log(`[API Client] endpoint: ${endpoint}`);
-    console.log(`[API Client] hostname: ${typeof window !== "undefined" ? window.location.hostname : "server"}`);
-    
+    console.log(
+      `[API Client] hostname: ${
+        typeof window !== "undefined" ? window.location.hostname : "server"
+      }`
+    );
+
     // 프로덕션에서 HTTP URL 사용 시도 감지
     if (typeof window !== "undefined" && url.startsWith("http://")) {
-      console.error(`[API Client] ERROR: 프로덕션에서 HTTP URL 사용 시도! 프록시를 사용해야 합니다: ${url}`);
+      console.error(
+        `[API Client] ERROR: 프로덕션에서 HTTP URL 사용 시도! 프록시를 사용해야 합니다: ${url}`
+      );
     }
 
     // Access Token 자동 추가 (인증이 필요한 요청)
