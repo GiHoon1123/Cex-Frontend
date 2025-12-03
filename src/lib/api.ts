@@ -6,9 +6,10 @@ const getApiBaseUrl = (): string => {
   if (typeof window !== "undefined") {
     // Vercel 배포 환경에서는 항상 프록시 사용 (HTTPS -> HTTP Mixed Content 방지)
     // localhost가 아니면 프록시 사용
-    const isProduction = window.location.hostname !== "localhost" && 
-                         window.location.hostname !== "127.0.0.1";
-    
+    const isProduction =
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1";
+
     if (isProduction) {
       return ""; // 상대 경로로 프록시 사용 (/api/proxy/...)
     }
@@ -39,21 +40,17 @@ const API_BASE_URL = getApiBaseUrl();
 
 // 환경변수 로드 확인용 로그 (개발 및 프로덕션 모두)
 if (typeof window !== "undefined") {
-  console.log("[API Client] API_BASE_URL:", API_BASE_URL);
-  console.log(
-    "[API Client] NEXT_PUBLIC_API_URL:",
-    process.env.NEXT_PUBLIC_API_URL || "NOT SET"
-  );
+  const isLocalhost = window.location.hostname === "localhost" || 
+                      window.location.hostname === "127.0.0.1";
+  
+  console.log("[API Client] API_BASE_URL:", API_BASE_URL || "(empty - using proxy)");
+  console.log("[API Client] hostname:", window.location.hostname);
+  console.log("[API Client] isLocalhost:", isLocalhost);
   console.log("[API Client] NODE_ENV:", process.env.NODE_ENV);
-
-  // 환경변수가 없으면 경고
-  if (!process.env.NEXT_PUBLIC_API_URL) {
-    console.error(
-      "[API Client] ERROR: NEXT_PUBLIC_API_URL 환경변수가 설정되지 않았습니다! 기본값을 사용합니다:",
-      API_BASE_URL
-    );
-    console.error(
-      "[API Client] Vercel 환경변수 설정을 확인하세요: NEXT_PUBLIC_API_URL=http://52.79.139.149:3002"
+  
+  if (!isLocalhost && API_BASE_URL) {
+    console.warn(
+      "[API Client] WARNING: 프로덕션 환경에서 직접 백엔드 접근 시도 감지! 프록시를 사용해야 합니다."
     );
   }
 }
@@ -184,18 +181,29 @@ class ApiClient {
   ): Promise<T> {
     // 프로덕션 환경에서 프록시 사용: /api/auth/signup -> /api/proxy/auth/signup
     let url: string;
-    if (typeof window !== "undefined" && !this.baseUrl) {
-      // baseUrl이 빈 문자열이면 프록시 사용
-      // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
-      const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
-      url = proxyPath;
+    
+    // 클라이언트 사이드에서 localhost가 아니면 항상 프록시 사용
+    if (typeof window !== "undefined") {
+      const isLocalhost = window.location.hostname === "localhost" || 
+                          window.location.hostname === "127.0.0.1";
+      
+      if (!isLocalhost) {
+        // 프로덕션: 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
+        const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
+        url = proxyPath;
+      } else {
+        // 개발 환경: 직접 접근
+        url = `${this.baseUrl}${endpoint}`;
+      }
     } else {
+      // 서버 사이드: 직접 접근
       url = `${this.baseUrl}${endpoint}`;
     }
-    
+
     // 디버깅: API 요청 URL 로그 출력
     console.log(`[API Client] Request URL: ${url}`);
     console.log(`[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`);
+    console.log(`[API Client] endpoint: ${endpoint}`);
 
     // Access Token 자동 추가 (인증이 필요한 요청)
     const accessToken = TokenStorage.getAccessToken();
