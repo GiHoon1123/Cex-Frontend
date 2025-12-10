@@ -3,7 +3,11 @@
 import { useEffect, useState, useMemo, memo, useCallback, useRef } from 'react';
 import { apiClient, AssetPosition, Balance } from '@/lib/api';
 
-export default function AssetList() {
+interface AssetListProps {
+  hideHeader?: boolean;
+}
+
+export default function AssetList({ hideHeader = false }: AssetListProps) {
   const [positions, setPositions] = useState<AssetPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -400,6 +404,30 @@ export default function AssetList() {
     );
   }
 
+  // 모바일 드로어 모드 (hideHeader가 true일 때)
+  if (hideHeader) {
+    return (
+      <div className="w-full">
+        {loading ? (
+          <div className="text-gray-400 text-center py-8 text-sm">로딩 중...</div>
+        ) : error ? (
+          <div className="text-red-400 text-center py-8 text-sm px-4">{error}</div>
+        ) : positions.length === 0 ? (
+          <div className="text-gray-400 text-center py-8 text-sm">
+            보유한 자산이 없습니다
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {positions.map((position) => {
+              return <PositionItem key={position.mint} position={position} solPrice={position.mint === 'SOL' ? solPrice : null} formatNumber={formatNumber} formatCurrency={formatCurrency} isMobile={true} />;
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 데스크톱 사이드바 모드
   return (
     <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col h-full">
       <div className="p-4 border-b border-gray-700 flex-shrink-0">
@@ -412,9 +440,9 @@ export default function AssetList() {
             보유한 자산이 없습니다
           </div>
         ) : (
-          <div className="p-2">
+          <div className="p-4">
             {positions.map((position) => {
-              return <PositionItem key={position.mint} position={position} solPrice={position.mint === 'SOL' ? solPrice : null} formatNumber={formatNumber} formatCurrency={formatCurrency} />;
+              return <PositionItem key={position.mint} position={position} solPrice={position.mint === 'SOL' ? solPrice : null} formatNumber={formatNumber} formatCurrency={formatCurrency} isMobile={false} />;
             })}
           </div>
         )}
@@ -424,131 +452,205 @@ export default function AssetList() {
 }
 
 // 개별 Position 항목을 메모이제이션하여 불필요한 리렌더링 방지
-const PositionItem = memo(({ position, solPrice, formatNumber, formatCurrency }: {
+const PositionItem = memo(({ position, solPrice, formatNumber, formatCurrency, isMobile = false }: {
   position: AssetPosition;
   solPrice: number | null;
   formatNumber: (value: string | null | undefined, decimals?: number) => string;
   formatCurrency: (value: string | null | undefined) => string;
+  isMobile?: boolean;
 }) => {
   const pnl = position.unrealized_pnl ? parseFloat(position.unrealized_pnl) : 0;
   const pnlPercent = position.unrealized_pnl_percent ? parseFloat(position.unrealized_pnl_percent) : 0;
   const isProfit = pnl >= 0;
 
+  // 평가액 계산
+  let calculatedValue: number | null = null;
+  if (position.mint === 'SOL' && solPrice) {
+    calculatedValue = solPrice * parseFloat(position.current_balance);
+  } else if (position.current_value) {
+    calculatedValue = parseFloat(position.current_value);
+  } else if (position.current_market_price) {
+    calculatedValue = parseFloat(position.current_market_price) * parseFloat(position.current_balance);
+  } else if (position.mint === 'USDT') {
+    calculatedValue = parseFloat(position.current_balance);
+  }
+
+  const price = position.mint === 'SOL' && solPrice 
+    ? solPrice 
+    : position.current_market_price 
+      ? parseFloat(position.current_market_price) 
+      : null;
+
+  // 모바일 표 형태 레이아웃
+  if (isMobile) {
+    return (
+      <div className="bg-gray-900 rounded-xl border border-gray-700 overflow-hidden">
+        <table className="w-full">
+          <thead>
+            <tr className="bg-gray-800 border-b border-gray-700">
+              <th colSpan={2} className="px-4 py-3 text-left">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-bold text-base">{position.mint}</span>
+                  {position.mint === 'SOL' && position.unrealized_pnl_percent !== null && (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                      parseFloat(position.unrealized_pnl_percent) >= 0 
+                        ? 'text-red-400 bg-red-400/10' 
+                        : 'text-blue-400 bg-blue-400/10'
+                    }`}>
+                      {parseFloat(position.unrealized_pnl_percent) >= 0 ? '+' : ''}
+                      {formatNumber(position.unrealized_pnl_percent)}%
+                    </span>
+                  )}
+                  {price && (
+                    <span className="text-gray-300 font-medium text-sm ml-auto">
+                      ${formatNumber(price.toString())}
+                    </span>
+                  )}
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-700">
+            <tr>
+              <td className="px-4 py-2 text-gray-400 text-sm">사용 가능</td>
+              <td className="px-4 py-2 text-white font-semibold text-sm text-right">
+                {formatNumber(position.available, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+              </td>
+            </tr>
+            {parseFloat(position.locked) > 0 && (
+              <tr>
+                <td className="px-4 py-2 text-gray-400 text-sm">잠김</td>
+                <td className="px-4 py-2 text-gray-300 text-sm text-right">
+                  {formatNumber(position.locked, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+                </td>
+              </tr>
+            )}
+            <tr className="bg-gray-800/50">
+              <td className="px-4 py-2 text-gray-300 font-medium text-sm">총 보유</td>
+              <td className="px-4 py-2 text-white font-bold text-sm text-right">
+                {formatNumber(position.current_balance, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+              </td>
+            </tr>
+            {calculatedValue !== null && (
+              <tr>
+                <td className="px-4 py-2 text-gray-400 text-sm">평가액</td>
+                <td className="px-4 py-2 text-white font-semibold text-sm text-right">
+                  {formatCurrency(calculatedValue.toString())}
+                </td>
+              </tr>
+            )}
+            {position.average_entry_price && (
+              <tr>
+                <td className="px-4 py-2 text-gray-400 text-sm">평균 매수가</td>
+                <td className="px-4 py-2 text-gray-300 text-sm text-right">
+                  ${formatNumber(position.average_entry_price)}
+                </td>
+              </tr>
+            )}
+            {position.unrealized_pnl !== null && position.unrealized_pnl_percent !== null && (
+              <tr className="bg-gray-800/30">
+                <td className="px-4 py-2 text-gray-400 text-sm">손익</td>
+                <td className="px-4 py-2 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <span className={`font-bold text-sm ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
+                      {isProfit ? '+' : ''}{formatCurrency(position.unrealized_pnl)}
+                    </span>
+                    <span className={`font-semibold text-xs ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
+                      ({isProfit ? '+' : ''}{formatNumber(position.unrealized_pnl_percent)}%)
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // 데스크톱 카드 형태 레이아웃
   return (
-    <div className="p-3 mb-2 bg-gray-900 rounded-lg border border-gray-700 hover:border-gray-600 transition-colors">
-                  {/* 자산명 */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-white font-semibold text-sm">{position.mint}</span>
-                      {/* SOL 자산의 경우 수익률 표시 */}
-                      {position.mint === 'SOL' && position.unrealized_pnl_percent !== null && (
-                        <span className={`text-xs font-medium ${
-                          parseFloat(position.unrealized_pnl_percent) >= 0 ? 'text-red-400' : 'text-blue-400'
-                        }`}>
-                          {parseFloat(position.unrealized_pnl_percent) >= 0 ? '+' : ''}
-                          {formatNumber(position.unrealized_pnl_percent)}%
-                        </span>
-                      )}
-                    </div>
-                    {(() => {
-                      // SOL의 경우 바이낸스 가격 사용, 그 외는 백엔드 가격 사용
-                      const price = position.mint === 'SOL' && solPrice 
-                        ? solPrice 
-                        : position.current_market_price 
-                          ? parseFloat(position.current_market_price) 
-                          : null;
-                      
-                      return price ? (
-                        <span className="text-gray-400 text-xs">
-                          ${formatNumber(price.toString())}
-                        </span>
-                      ) : null;
-                    })()}
-                  </div>
+    <div className="p-4 mb-3 bg-gray-900 rounded-xl border border-gray-700 hover:border-gray-600 transition-all shadow-sm">
+      {/* 헤더: 자산명, 수익률, 현재가 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <span className="text-white font-bold text-base">{position.mint}</span>
+          {position.mint === 'SOL' && position.unrealized_pnl_percent !== null && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
+              parseFloat(position.unrealized_pnl_percent) >= 0 
+                ? 'text-red-400 bg-red-400/10' 
+                : 'text-blue-400 bg-blue-400/10'
+            }`}>
+              {parseFloat(position.unrealized_pnl_percent) >= 0 ? '+' : ''}
+              {formatNumber(position.unrealized_pnl_percent)}%
+            </span>
+          )}
+        </div>
+        {price && (
+          <span className="text-gray-300 font-medium text-sm">
+            ${formatNumber(price.toString())}
+          </span>
+        )}
+      </div>
 
-                  {/* 보유 수량 */}
-                  <div className="mb-2">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-gray-400">사용 가능</span>
-                      <span className="text-white font-medium">
-                        {formatNumber(position.available, position.mint === 'USDT' ? 2 : 4)} {position.mint}
-                      </span>
-                    </div>
-                    {parseFloat(position.locked) > 0 && (
-                      <div className="flex items-center justify-between text-xs mb-1">
-                        <span className="text-gray-500">잠김</span>
-                        <span className="text-gray-500">
-                          {formatNumber(position.locked, position.mint === 'USDT' ? 2 : 4)} {position.mint}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between text-xs pt-1 border-t border-gray-700">
-                      <span className="text-gray-400">총 보유</span>
-                      <span className="text-gray-300">
-                        {formatNumber(position.current_balance, position.mint === 'USDT' ? 2 : 4)} {position.mint}
-                      </span>
-                    </div>
-                  </div>
+      {/* 보유 수량 섹션 */}
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center justify-between">
+          <span className="text-gray-500 text-xs">사용 가능</span>
+          <span className="text-white font-semibold text-sm">
+            {formatNumber(position.available, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+          </span>
+        </div>
+        {parseFloat(position.locked) > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-500 text-xs">잠김</span>
+            <span className="text-gray-400 text-sm">
+              {formatNumber(position.locked, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+            </span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2 border-t border-gray-700">
+          <span className="text-gray-400 text-xs font-medium">총 보유</span>
+          <span className="text-gray-200 font-semibold text-sm">
+            {formatNumber(position.current_balance, position.mint === 'USDT' ? 2 : 4)} {position.mint}
+          </span>
+        </div>
+      </div>
 
-                  {/* 평가액 */}
-                  {(() => {
-                    // 평가액 계산: 현재 가격 × 보유 수량
-                    let calculatedValue: number | null = null;
-                    
-                    if (position.mint === 'SOL' && solPrice) {
-                      // SOL의 경우 바이낸스 가격 사용
-                      calculatedValue = solPrice * parseFloat(position.current_balance);
-                    } else if (position.current_value) {
-                      // 백엔드에서 제공하는 평가액 사용
-                      calculatedValue = parseFloat(position.current_value);
-                    } else if (position.current_market_price) {
-                      // 백엔드 가격으로 계산
-                      calculatedValue = parseFloat(position.current_market_price) * parseFloat(position.current_balance);
-                    } else if (position.mint === 'USDT') {
-                      // USDT는 1:1
-                      calculatedValue = parseFloat(position.current_balance);
-                    }
-                    
-                    return calculatedValue !== null ? (
-                      <div className="mb-2">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-gray-400">평가액</span>
-                          <span className="text-white font-medium">
-                            {formatCurrency(calculatedValue.toString())}
-                          </span>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
+      {/* 평가액 및 평균 매수가 */}
+      <div className="space-y-2 mb-4 pb-4 border-b border-gray-700">
+        {calculatedValue !== null && (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400 text-xs">평가액</span>
+            <span className="text-white font-semibold text-sm">
+              {formatCurrency(calculatedValue.toString())}
+            </span>
+          </div>
+        )}
+        {position.average_entry_price && (
+          <div className="flex items-center justify-between">
+            <span className="text-gray-400 text-xs">평균 매수가</span>
+            <span className="text-gray-300 text-sm">
+              ${formatNumber(position.average_entry_price)}
+            </span>
+          </div>
+        )}
+      </div>
 
-                  {/* 평균 매수가 */}
-                  {position.average_entry_price && (
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">평균 매수가</span>
-                        <span className="text-gray-300">
-                          ${formatNumber(position.average_entry_price)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 손익 */}
-                  {position.unrealized_pnl !== null && position.unrealized_pnl_percent !== null && (
-                    <div className="pt-2 border-t border-gray-700">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-gray-400">손익</span>
-                        <div className="flex items-center gap-2">
-                          <span className={`font-semibold ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
-                            {isProfit ? '+' : ''}{formatCurrency(position.unrealized_pnl)}
-                          </span>
-                          <span className={`font-semibold ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
-                            ({isProfit ? '+' : ''}{formatNumber(position.unrealized_pnl_percent)}%)
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+      {/* 손익 */}
+      {position.unrealized_pnl !== null && position.unrealized_pnl_percent !== null && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-gray-400 text-xs">손익</span>
+          <div className="flex items-center gap-2">
+            <span className={`font-bold text-sm ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
+              {isProfit ? '+' : ''}{formatCurrency(position.unrealized_pnl)}
+            </span>
+            <span className={`font-semibold text-xs ${isProfit ? 'text-red-400' : 'text-blue-400'}`}>
+              ({isProfit ? '+' : ''}{formatNumber(position.unrealized_pnl_percent)}%)
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }, (prevProps, nextProps) => {
