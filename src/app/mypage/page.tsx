@@ -128,14 +128,22 @@ export default function MyPagePage() {
           const balanceResponse = await apiClient.getWalletBalance(myWallet.id);
           setBalance(balanceResponse);
         } catch (balanceErr) {
-          // Solana network error 등은 조용히 처리
+          // Solana network error는 항상 조용히 처리 (사용자에게 표시 안 함)
           console.error("지갑 잔액 조회 실패 (무시됨):", balanceErr);
-          if (!silent) {
-            // silent 모드가 아닐 때만 에러 표시 (일반 조회 시)
+          
+          const errorMessage = balanceErr instanceof Error ? balanceErr.message : "";
+          const isSolanaNetworkError = 
+            errorMessage.includes("Solana network error") ||
+            errorMessage.includes("Failed to get balance from Solana network") ||
+            errorMessage.includes("Failed to get balance for");
+          
+          // Solana network error가 아닌 경우에만 에러 표시 (silent 모드가 아닐 때)
+          if (!silent && !isSolanaNetworkError) {
             setError(
-              balanceErr instanceof Error ? balanceErr.message : "지갑 잔액을 불러올 수 없습니다."
+              errorMessage || "지갑 잔액을 불러올 수 없습니다."
             );
           }
+          // Solana network error는 항상 무시 (콘솔에만 기록)
         }
       }
     } catch (err) {
