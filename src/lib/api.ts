@@ -2,7 +2,7 @@
 // Next.js는 빌드 타임에 NEXT_PUBLIC_ 접두사가 있는 환경변수를 클라이언트 번들에 주입합니다
 // .env.development (개발) 또는 .env.production (프로덕션) 파일에서 자동 로드
 const getApiBaseUrl = (): string => {
-  // 환경변수에서 백엔드 URL 가져오기 (직접 연결)
+  // 환경변수에서 백엔드 URL 가져오기
   const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
   
   if (envUrl) {
@@ -18,18 +18,25 @@ const getApiBaseUrl = (): string => {
     if (isLocalhost) {
       return "http://localhost:3002";
     }
+    
+    // 프로덕션 환경 (Vercel): rewrites를 통해 프록시 사용
+    // 브라우저에서는 같은 도메인(/api/*)으로 요청
+    // Next.js rewrites가 백엔드로 프록시
+    return ""; // 빈 문자열 = 상대 경로 사용 (rewrites 활용)
   }
   
-  // 서버 사이드: 개발 환경이면 로컬, 아니면 운영 서버
+  // 서버 사이드: 개발 환경이면 로컬, 아니면 rewrites 사용
   if (typeof process !== "undefined") {
     const isDevelopment = process.env.NODE_ENV === "development";
     if (isDevelopment) {
       return "http://localhost:3002";
     }
+    // 프로덕션 서버 사이드: rewrites 사용
+    return ""; // 빈 문자열 = 상대 경로 사용
   }
   
-  // 운영 서버 기본값
-  return "http://52.79.139.149:3002";
+  // 기본값: rewrites 사용
+  return "";
 };
 
 const API_BASE_URL = getApiBaseUrl();
