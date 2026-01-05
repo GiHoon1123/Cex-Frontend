@@ -1,19 +1,19 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { apiClient, Balance, CreateOrderRequest } from '@/lib/api';
-import { useAlert } from './AlertModal';
+import { apiClient, Balance, CreateOrderRequest } from "@/lib/api";
+import { useEffect, useRef, useState } from "react";
+import { useAlert } from "./AlertModal";
 
-type OrderType = 'buy' | 'sell';
-type OrderSide = 'limit' | 'market';
+type OrderType = "buy" | "sell";
+type OrderSide = "limit" | "market";
 
 export default function OrderPanel() {
-  const [orderType, setOrderType] = useState<OrderType>('buy');
-  const [orderSide, setOrderSide] = useState<OrderSide>('limit');
-  const [price, setPrice] = useState('');
-  const [amount, setAmount] = useState('');
-  const [quoteAmount, setQuoteAmount] = useState(''); // 시장가 매수용 금액
-  const [total, setTotal] = useState('');
+  const [orderType, setOrderType] = useState<OrderType>("buy");
+  const [orderSide, setOrderSide] = useState<OrderSide>("limit");
+  const [price, setPrice] = useState("");
+  const [amount, setAmount] = useState("");
+  const [quoteAmount, setQuoteAmount] = useState(""); // 시장가 매수용 금액
+  const [total, setTotal] = useState("");
   const [solPrice, setSolPrice] = useState<number | null>(null); // 실시간 SOL 가격
   const [balances, setBalances] = useState<Balance[]>([]);
   const [loading, setLoading] = useState(false);
@@ -28,21 +28,25 @@ export default function OrderPanel() {
     // 초기 가격 로드 (REST API)
     const fetchInitialSolPrice = async () => {
       try {
-        const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
+        const response = await fetch(
+          "https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT"
+        );
         const data = await response.json();
         const price = parseFloat(data.price) || null;
         setSolPrice(price);
       } catch (error) {
-        console.error('초기 SOL 가격 가져오기 실패:', error);
+        console.error("초기 SOL 가격 가져오기 실패:", error);
       }
     };
     fetchInitialSolPrice();
 
     // WebSocket 연결
-    wsTickerRef.current = new WebSocket('wss://stream.binance.com:9443/ws/solusdt@ticker');
+    wsTickerRef.current = new WebSocket(
+      "wss://stream.binance.com:9443/ws/solusdt@ticker"
+    );
 
     wsTickerRef.current.onopen = () => {
-      console.log('OrderPanel: SOL 가격 WebSocket 연결됨');
+      console.log("OrderPanel: SOL 가격 WebSocket 연결됨");
     };
 
     wsTickerRef.current.onmessage = (event) => {
@@ -53,16 +57,19 @@ export default function OrderPanel() {
           setSolPrice(price);
         }
       } catch (error) {
-        console.error('OrderPanel: SOL 가격 WebSocket 데이터 파싱 실패:', error);
+        console.error(
+          "OrderPanel: SOL 가격 WebSocket 데이터 파싱 실패:",
+          error
+        );
       }
     };
 
     wsTickerRef.current.onerror = (error) => {
-      console.warn('OrderPanel: SOL 가격 WebSocket 연결 오류');
+      console.warn("OrderPanel: SOL 가격 WebSocket 연결 오류");
     };
 
     wsTickerRef.current.onclose = () => {
-      console.warn('OrderPanel: SOL 가격 WebSocket 연결 종료');
+      console.warn("OrderPanel: SOL 가격 WebSocket 연결 종료");
     };
 
     return () => {
@@ -86,7 +93,7 @@ export default function OrderPanel() {
           setBalances(response.balances);
         }
       } catch (error) {
-        console.error('잔액 가져오기 실패:', error);
+        console.error("잔액 가져오기 실패:", error);
       }
     };
 
@@ -96,7 +103,7 @@ export default function OrderPanel() {
   }, []);
 
   const getBalance = (mint: string): number => {
-    const balance = balances.find(b => b.mint_address === mint);
+    const balance = balances.find((b) => b.mint_address === mint);
     if (!balance) return 0;
     return parseFloat(balance.available) || 0;
   };
@@ -107,13 +114,18 @@ export default function OrderPanel() {
     if (value && amount) {
       const priceNum = parseFloat(value);
       const amountNum = parseFloat(amount);
-      if (!isNaN(priceNum) && !isNaN(amountNum) && priceNum > 0 && amountNum > 0) {
+      if (
+        !isNaN(priceNum) &&
+        !isNaN(amountNum) &&
+        priceNum > 0 &&
+        amountNum > 0
+      ) {
         setTotal((priceNum * amountNum).toFixed(2));
       } else {
-        setTotal('');
+        setTotal("");
       }
     } else {
-      setTotal('');
+      setTotal("");
     }
   };
 
@@ -123,13 +135,18 @@ export default function OrderPanel() {
     if (value && price) {
       const priceNum = parseFloat(price);
       const amountNum = parseFloat(value);
-      if (!isNaN(priceNum) && !isNaN(amountNum) && priceNum > 0 && amountNum > 0) {
+      if (
+        !isNaN(priceNum) &&
+        !isNaN(amountNum) &&
+        priceNum > 0 &&
+        amountNum > 0
+      ) {
         setTotal((priceNum * amountNum).toFixed(2));
       } else {
-        setTotal('');
+        setTotal("");
       }
     } else {
-      setTotal('');
+      setTotal("");
     }
   };
 
@@ -153,20 +170,22 @@ export default function OrderPanel() {
     setError(null);
     setSuccess(null);
 
-    if (orderType === 'buy') {
-      const usdtBalance = getBalance('USDT');
+    if (orderType === "buy") {
+      const usdtBalance = getBalance("USDT");
       if (usdtBalance <= 0) {
-        setError('USDT 잔액이 없습니다.');
+        setError("USDT 잔액이 없습니다.");
         return;
       }
       const calculatedAmount = ((usdtBalance * percent) / 100).toFixed(2);
-      if (orderSide === 'limit') {
+      if (orderSide === "limit") {
         // 지정가 매수: USDT 잔액으로 살 수 있는 SOL 수량 계산
         if (price && parseFloat(price) > 0) {
-          setAmount((parseFloat(calculatedAmount) / parseFloat(price)).toFixed(4));
+          setAmount(
+            (parseFloat(calculatedAmount) / parseFloat(price)).toFixed(4)
+          );
           setTotal(calculatedAmount);
         } else {
-          setError('가격을 먼저 입력해주세요.');
+          setError("가격을 먼저 입력해주세요.");
         }
       } else {
         // 시장가 매수: USDT 잔액의 일정 비율을 금액으로 설정
@@ -175,19 +194,19 @@ export default function OrderPanel() {
       }
     } else {
       // 매도
-      const solBalance = getBalance('SOL');
+      const solBalance = getBalance("SOL");
       if (solBalance <= 0) {
-        setError('SOL 잔액이 없습니다.');
+        setError("SOL 잔액이 없습니다.");
         return;
       }
       const calculatedAmount = ((solBalance * percent) / 100).toFixed(4);
       setAmount(calculatedAmount);
-      if (orderSide === 'limit' && price) {
+      if (orderSide === "limit" && price) {
         setTotal((parseFloat(price) * parseFloat(calculatedAmount)).toFixed(2));
-      } else if (orderSide === 'market' && solPrice) {
+      } else if (orderSide === "market" && solPrice) {
         setTotal((solPrice * parseFloat(calculatedAmount)).toFixed(2));
       } else {
-        setTotal('');
+        setTotal("");
       }
     }
   };
@@ -199,7 +218,7 @@ export default function OrderPanel() {
     setLoading(true);
 
     if (!apiClient.isAuthenticated()) {
-      setError('로그인이 필요합니다.');
+      setError("로그인이 필요합니다.");
       setLoading(false);
       return;
     }
@@ -207,63 +226,91 @@ export default function OrderPanel() {
     try {
       // 유효성 검증
       const currentBalances = (await apiClient.getBalances()).balances;
-      console.log('주문 전 잔액 조회:', currentBalances);
+      console.log("주문 전 잔액 조회:", currentBalances);
 
-      if (orderSide === 'limit') {
+      if (orderSide === "limit") {
         if (!price || parseFloat(price) <= 0) {
-          throw new Error('가격을 입력해주세요.');
+          throw new Error("가격을 입력해주세요.");
         }
         if (!amount || parseFloat(amount) <= 0) {
-          throw new Error('수량을 입력해주세요.');
+          throw new Error("수량을 입력해주세요.");
         }
 
         // 잔액 체크
-        if (orderType === 'buy') {
+        if (orderType === "buy") {
           const requiredUsdt = parseFloat(price) * parseFloat(amount);
-          const usdtBalance = currentBalances.find(b => b.mint_address === 'USDT');
-          console.log('USDT 잔액 확인:', usdtBalance);
-          const availableUsdt = usdtBalance ? parseFloat(usdtBalance.available) : 0;
+          const usdtBalance = currentBalances.find(
+            (b) => b.mint_address === "USDT"
+          );
+          console.log("USDT 잔액 확인:", usdtBalance);
+          const availableUsdt = usdtBalance
+            ? parseFloat(usdtBalance.available)
+            : 0;
           console.log(`필요: ${requiredUsdt}, 보유: ${availableUsdt}`);
           if (requiredUsdt > availableUsdt) {
-            throw new Error(`USDT 잔액이 부족합니다. (필요: ${requiredUsdt.toLocaleString()} USDT, 보유: ${availableUsdt.toLocaleString()} USDT)`);
+            throw new Error(
+              `USDT 잔액이 부족합니다. (필요: ${requiredUsdt.toLocaleString()} USDT, 보유: ${availableUsdt.toLocaleString()} USDT)`
+            );
           }
         } else {
           // 매도
           const requiredSol = parseFloat(amount);
-          const solBalance = currentBalances.find(b => b.mint_address === 'SOL');
-          const availableSol = solBalance ? parseFloat(solBalance.available) : 0;
+          const solBalance = currentBalances.find(
+            (b) => b.mint_address === "SOL"
+          );
+          const availableSol = solBalance
+            ? parseFloat(solBalance.available)
+            : 0;
           if (requiredSol > availableSol) {
-            throw new Error(`SOL 잔액이 부족합니다. (필요: ${requiredSol.toFixed(4)} SOL, 보유: ${availableSol.toFixed(4)} SOL)`);
+            throw new Error(
+              `SOL 잔액이 부족합니다. (필요: ${requiredSol.toFixed(
+                4
+              )} SOL, 보유: ${availableSol.toFixed(4)} SOL)`
+            );
           }
         }
       } else {
         // 시장가
-        if (orderType === 'buy') {
+        if (orderType === "buy") {
           if (!quoteAmount || parseFloat(quoteAmount) <= 0) {
-            throw new Error('금액을 입력해주세요.');
+            throw new Error("금액을 입력해주세요.");
           }
-          
+
           // 잔액 체크
           const requiredUsdt = parseFloat(quoteAmount);
-          const usdtBalance = currentBalances.find(b => b.mint_address === 'USDT');
-          console.log('시장가 매수 - USDT 잔액 확인:', usdtBalance);
-          const availableUsdt = usdtBalance ? parseFloat(usdtBalance.available) : 0;
+          const usdtBalance = currentBalances.find(
+            (b) => b.mint_address === "USDT"
+          );
+          console.log("시장가 매수 - USDT 잔액 확인:", usdtBalance);
+          const availableUsdt = usdtBalance
+            ? parseFloat(usdtBalance.available)
+            : 0;
           console.log(`필요: ${requiredUsdt}, 보유: ${availableUsdt}`);
           if (requiredUsdt > availableUsdt) {
-            throw new Error(`USDT 잔액이 부족합니다. (필요: ${requiredUsdt.toLocaleString()} USDT, 보유: ${availableUsdt.toLocaleString()} USDT)`);
+            throw new Error(
+              `USDT 잔액이 부족합니다. (필요: ${requiredUsdt.toLocaleString()} USDT, 보유: ${availableUsdt.toLocaleString()} USDT)`
+            );
           }
         } else {
           // 시장가 매도
           if (!amount || parseFloat(amount) <= 0) {
-            throw new Error('수량을 입력해주세요.');
+            throw new Error("수량을 입력해주세요.");
           }
-          
+
           // 잔액 체크
           const requiredSol = parseFloat(amount);
-          const solBalance = currentBalances.find(b => b.mint_address === 'SOL');
-          const availableSol = solBalance ? parseFloat(solBalance.available) : 0;
+          const solBalance = currentBalances.find(
+            (b) => b.mint_address === "SOL"
+          );
+          const availableSol = solBalance
+            ? parseFloat(solBalance.available)
+            : 0;
           if (requiredSol > availableSol) {
-            throw new Error(`SOL 잔액이 부족합니다. (필요: ${requiredSol.toFixed(4)} SOL, 보유: ${availableSol.toFixed(4)} SOL)`);
+            throw new Error(
+              `SOL 잔액이 부족합니다. (필요: ${requiredSol.toFixed(
+                4
+              )} SOL, 보유: ${availableSol.toFixed(4)} SOL)`
+            );
           }
         }
       }
@@ -272,71 +319,84 @@ export default function OrderPanel() {
       const request: CreateOrderRequest = {
         order_type: orderType,
         order_side: orderSide,
-        base_mint: 'SOL',
-        quote_mint: 'USDT',
+        base_mint: "SOL",
+        quote_mint: "USDT",
       };
 
-      if (orderSide === 'limit') {
+      if (orderSide === "limit") {
         request.price = price;
         request.amount = amount;
-      } else { // market
-        if (orderType === 'buy') {
+      } else {
+        // market
+        if (orderType === "buy") {
           request.quote_amount = quoteAmount;
-        } else { // sell
+        } else {
+          // sell
           request.amount = amount;
         }
       }
-      
-      console.log('주문 요청 데이터:', JSON.stringify(request, null, 2));
-      console.log('주문 타입:', orderType, '주문 방식:', orderSide);
-      
+
+      console.log("주문 요청 데이터:", JSON.stringify(request, null, 2));
+      console.log("주문 타입:", orderType, "주문 방식:", orderSide);
+
       try {
         const order = await apiClient.createOrder(request);
-      
-        const successMessage = `${orderType === 'buy' ? '매수' : '매도'} 주문이 생성되었습니다. (ID: ${order.id})`;
+
+        const successMessage = `${
+          orderType === "buy" ? "매수" : "매도"
+        } 주문이 생성되었습니다. (ID: ${order.id})`;
         setSuccess(successMessage);
-        showAlert(successMessage, 'success');
-        
+        showAlert(successMessage, "success");
+
         // 폼 초기화
-        setPrice('');
-        setAmount('');
-        setQuoteAmount('');
-        setTotal('');
+        setPrice("");
+        setAmount("");
+        setQuoteAmount("");
+        setTotal("");
 
         // 잔액 갱신
         const response = await apiClient.getBalances();
         setBalances(response.balances);
       } catch (orderError) {
-        console.error('주문 생성 실패 (상세):', orderError);
+        console.error("주문 생성 실패 (상세):", orderError);
         throw orderError; // 상위 catch로 전달
       }
     } catch (err) {
-      console.error('주문 생성 실패:', err);
-      let errorMessage = '주문 생성에 실패했습니다.';
+      console.error("주문 생성 실패:", err);
+      let errorMessage = "주문 생성에 실패했습니다.";
       if (err instanceof Error) {
         errorMessage = err.message;
-        
+
         // 백엔드 엔진 에러 처리
-        if (err.message.includes('Failed to submit order to engine')) {
-          errorMessage = '주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
-          console.error('엔진 제출 실패 - 백엔드 로그 확인 필요');
-        } else if (err.message.includes('Insufficient balance')) {
+        if (err.message.includes("Failed to submit order to engine")) {
+          errorMessage =
+            "주문 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+          console.error("엔진 제출 실패 - 백엔드 로그 확인 필요");
+        } else if (err.message.includes("Insufficient balance")) {
           // 잔액 부족 에러 파싱 (여러 형식 지원)
           // 형식 1: "Insufficient balance: required 2500000.00, but only 2255292.54 available"
           // 형식 2: "Failed to create order: Insufficient balance: required 2500000.00, but only 2255292.54 available"
-          const match = err.message.match(/required ([\d.]+), but only ([\d.]+) available/);
+          const match = err.message.match(
+            /required ([\d.]+), but only ([\d.]+) available/
+          );
           if (match) {
             const required = parseFloat(match[1]);
             const available = parseFloat(match[2]);
-            const mint = orderType === 'buy' ? 'USDT' : 'SOL';
-            errorMessage = `잔액이 부족합니다. (필요: ${required.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mint}, 보유: ${available.toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${mint})`;
+            const mint = orderType === "buy" ? "USDT" : "SOL";
+            errorMessage = `잔액이 부족합니다. (필요: ${required.toLocaleString(
+              "ko-KR",
+              { minimumFractionDigits: 2, maximumFractionDigits: 2 }
+            )} ${mint}, 보유: ${available.toLocaleString("ko-KR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} ${mint})`;
           } else {
             // 파싱 실패 시 원본 메시지 사용
-            errorMessage = err.message.includes('잔액이 부족합니다') 
-              ? err.message 
-              : '잔액이 부족합니다.';
+            errorMessage = err.message.includes("잔액이 부족합니다")
+              ? err.message
+              : "잔액이 부족합니다.";
           }
-        } else if (err.message.includes('Failed to create order')) {
+        } else if (err.message.includes("Failed to create order")) {
           // 기타 백엔드 에러
           const match = err.message.match(/Failed to create order: (.+)/);
           if (match) {
@@ -347,43 +407,43 @@ export default function OrderPanel() {
         }
       }
       setError(errorMessage);
-      showAlert(errorMessage, 'error');
+      showAlert(errorMessage, "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const solBalance = getBalance('SOL');
-  const usdtBalance = getBalance('USDT');
+  const solBalance = getBalance("SOL");
+  const usdtBalance = getBalance("USDT");
 
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5 h-full flex flex-col">
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5 h-full flex flex-col overflow-hidden">
       {/* 매수/매도 버튼 */}
       <div className="flex mb-3 flex-shrink-0">
         <button
           onClick={() => {
-            setOrderType('buy');
+            setOrderType("buy");
             setError(null);
             setSuccess(null);
           }}
           className={`flex-1 py-2.5 px-4 rounded-l font-semibold text-sm transition-colors ${
-            orderType === 'buy'
-              ? 'bg-red-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            orderType === "buy"
+              ? "bg-red-600 text-white"
+              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
           }`}
         >
           매수
         </button>
         <button
           onClick={() => {
-            setOrderType('sell');
+            setOrderType("sell");
             setError(null);
             setSuccess(null);
           }}
           className={`flex-1 py-2.5 px-4 rounded-r font-semibold text-sm transition-colors ${
-            orderType === 'sell'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            orderType === "sell"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-700 text-gray-300 hover:bg-gray-600"
           }`}
         >
           매도
@@ -394,32 +454,32 @@ export default function OrderPanel() {
       <div className="flex mb-3 flex-shrink-0">
         <button
           onClick={() => {
-            setOrderSide('limit');
+            setOrderSide("limit");
             setError(null);
             setSuccess(null);
-            setQuoteAmount(''); // 시장가 매수 금액 초기화
+            setQuoteAmount(""); // 시장가 매수 금액 초기화
           }}
           className={`flex-1 py-1.5 px-3 rounded-l text-xs font-medium transition-colors ${
-            orderSide === 'limit'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+            orderSide === "limit"
+              ? "bg-gray-700 text-white"
+              : "bg-gray-900 text-gray-400 hover:bg-gray-800"
           }`}
         >
           지정가
         </button>
         <button
           onClick={() => {
-            setOrderSide('market');
+            setOrderSide("market");
             setError(null);
             setSuccess(null);
-            setPrice(''); // 지정가 가격 초기화
-            setAmount(''); // 지정가 수량 초기화
-            setTotal(''); // 총액 초기화
+            setPrice(""); // 지정가 가격 초기화
+            setAmount(""); // 지정가 수량 초기화
+            setTotal(""); // 총액 초기화
           }}
           className={`flex-1 py-1.5 px-3 rounded-r text-xs font-medium transition-colors ${
-            orderSide === 'market'
-              ? 'bg-gray-700 text-white'
-              : 'bg-gray-900 text-gray-400 hover:bg-gray-800'
+            orderSide === "market"
+              ? "bg-gray-700 text-white"
+              : "bg-gray-900 text-gray-400 hover:bg-gray-800"
           }`}
         >
           시장가
@@ -429,21 +489,28 @@ export default function OrderPanel() {
       {/* 잔액 표시 */}
       <div className="mb-3 pb-3 border-b border-gray-700 flex-shrink-0">
         <div className="flex justify-between text-xs mb-1">
-          <span className="text-gray-400">보유 {orderType === 'buy' ? 'USDT' : 'SOL'}</span>
+          <span className="text-gray-400">
+            보유 {orderType === "buy" ? "USDT" : "SOL"}
+          </span>
           <span className="text-white font-medium">
-            {orderType === 'buy' 
+            {orderType === "buy"
               ? `${usdtBalance.toFixed(2)} USDT`
               : `${solBalance.toFixed(4)} SOL`}
           </span>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 flex flex-col space-y-3 justify-between">
-        <div className="space-y-3">
+      <form
+        onSubmit={handleSubmit}
+        className="flex-1 flex flex-col space-y-3 justify-between min-h-0"
+      >
+        <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
           {/* 지정가 주문: 가격 입력 */}
-          {orderSide === 'limit' && (
+          {orderSide === "limit" && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">가격 (USDT)</label>
+              <label className="block text-sm text-gray-400 mb-1">
+                가격 (USDT)
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -466,9 +533,11 @@ export default function OrderPanel() {
           )}
 
           {/* 수량 입력 (지정가 매수, 모든 매도) */}
-          {(orderSide === 'limit' || orderType === 'sell') && (
+          {(orderSide === "limit" || orderType === "sell") && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">수량 (SOL)</label>
+              <label className="block text-sm text-gray-400 mb-1">
+                수량 (SOL)
+              </label>
               <input
                 type="number"
                 step="0.0001"
@@ -493,9 +562,11 @@ export default function OrderPanel() {
           )}
 
           {/* 금액 입력 (시장가 매수) */}
-          {orderSide === 'market' && orderType === 'buy' && (
+          {orderSide === "market" && orderType === "buy" && (
             <div>
-              <label className="block text-sm text-gray-400 mb-1">금액 (USDT)</label>
+              <label className="block text-sm text-gray-400 mb-1">
+                금액 (USDT)
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -521,7 +592,9 @@ export default function OrderPanel() {
 
           {/* 총액 */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">총액 (USDT)</label>
+            <label className="block text-sm text-gray-400 mb-1">
+              총액 (USDT)
+            </label>
             <input
               type="text"
               value={total}
@@ -531,20 +604,28 @@ export default function OrderPanel() {
           </div>
         </div>
 
-        {error && <div className="text-red-400 text-sm text-center mt-2">{error}</div>}
-        {success && <div className="text-green-400 text-sm text-center mt-2">{success}</div>}
+        <div className="flex-shrink-0 mt-2">
+          {error && (
+            <div className="text-red-400 text-sm text-center mb-2">{error}</div>
+          )}
+          {success && (
+            <div className="text-green-400 text-sm text-center mb-2">
+              {success}
+            </div>
+          )}
 
-        <button
-          type="submit"
-          className={`w-full py-2.5 rounded font-semibold transition-colors flex-shrink-0 ${
-            orderType === 'buy'
-              ? 'bg-red-600 hover:bg-red-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
-          disabled={loading}
-        >
-          {loading ? '주문 처리 중...' : '주문하기'}
-        </button>
+          <button
+            type="submit"
+            className={`w-full py-2.5 rounded font-semibold transition-colors ${
+              orderType === "buy"
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-blue-600 hover:bg-blue-700 text-white"
+            } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={loading}
+          >
+            {loading ? "주문 처리 중..." : "주문하기"}
+          </button>
+        </div>
       </form>
       <AlertContainer />
     </div>

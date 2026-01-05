@@ -153,11 +153,9 @@ export default function MyPagePage() {
       // 지갑 생성 후 경고 팝업 표시 (한번만)
       setJustCreatedWallet(true);
     } catch (err) {
+      // 에러는 콘솔에만 기록하고 사용자에게는 표시하지 않음
       console.error("지갑 생성 실패:", err);
-      const errorMessage =
-        err instanceof Error ? err.message : "지갑 생성에 실패했습니다.";
-      setError(errorMessage);
-      showAlert(errorMessage, "error");
+      // 지갑 생성 실패 시에도 조용히 처리 (에러 메시지 표시 안 함)
     } finally {
       setCreating(false);
     }

@@ -137,7 +137,7 @@ export default function Header() {
       {showLoginInfoModal && (
         <InfoModal
           title="모의 투자 안내"
-          message="마이페이지에서 지갑을 생성하면 모의 투자를 위한 지갑주소와 가상의 자산이 생성됩니다."
+          message="지갑을 생성하면 모의거래를 위한 자산이 지급됩니다."
           type="info"
           isOpen={showLoginInfoModal}
           onClose={handleCloseLoginInfo}
