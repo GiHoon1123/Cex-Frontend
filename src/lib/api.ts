@@ -2,38 +2,34 @@
 // Next.js는 빌드 타임에 NEXT_PUBLIC_ 접두사가 있는 환경변수를 클라이언트 번들에 주입합니다
 // .env.development (개발) 또는 .env.production (프로덕션) 파일에서 자동 로드
 const getApiBaseUrl = (): string => {
-  // 클라이언트 사이드: Next.js API Routes 프록시 사용 (Mixed Content 방지)
+  // 환경변수에서 백엔드 URL 가져오기 (직접 연결)
+  const envUrl = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
+  
+  if (envUrl) {
+    return envUrl;
+  }
+  
+  // 로컬 환경 감지 (클라이언트 사이드)
   if (typeof window !== "undefined") {
-    // Vercel 배포 환경에서는 항상 프록시 사용 (HTTPS -> HTTP Mixed Content 방지)
-    // localhost가 아니면 프록시 사용
-    const isProduction =
-      window.location.hostname !== "localhost" &&
-      window.location.hostname !== "127.0.0.1";
-
-    if (isProduction) {
-      return ""; // 상대 경로로 프록시 사용 (/api/proxy/...)
+    const isLocalhost =
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+    
+    if (isLocalhost) {
+      return "http://localhost:3002";
     }
-
-    // 개발 환경: 환경변수 또는 기본값 사용
-    const envUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (envUrl) {
-      return envUrl;
-    }
-    return "http://localhost:3002";
   }
-
-  // 서버 사이드: 직접 백엔드 접근 (환경변수 사용)
+  
+  // 서버 사이드: 개발 환경이면 로컬, 아니면 운영 서버
   if (typeof process !== "undefined") {
-    const envUrl =
-      process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_API_URL;
-    if (envUrl) {
-      return envUrl;
+    const isDevelopment = process.env.NODE_ENV === "development";
+    if (isDevelopment) {
+      return "http://localhost:3002";
     }
-    return "http://localhost:3002";
   }
-
-  // 기본값
-  return "http://localhost:3002";
+  
+  // 운영 서버 기본값
+  return "http://52.79.139.149:3002";
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -145,18 +141,8 @@ class ApiClient {
   private refreshPromise: Promise<void> | null = null;
 
   constructor(baseUrl: string) {
-    // 클라이언트 사이드에서는 프로덕션 환경일 때 baseUrl을 무시하고 프록시 사용
-    // (빌드 타임 환경변수가 HTTP URL로 설정되어 있어도 프록시 사용)
-    if (typeof window !== "undefined") {
-      const isLocalhost =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-      // localhost가 아니면 빈 문자열로 설정 (프록시 사용)
-      this.baseUrl = isLocalhost ? baseUrl : "";
-    } else {
-      // 서버 사이드: 그대로 사용
-      this.baseUrl = baseUrl;
-    }
+    // 직접 백엔드 연결 사용 (프록시 제거)
+    this.baseUrl = baseUrl;
   }
 
   // 토큰 갱신
@@ -166,24 +152,8 @@ class ApiClient {
       throw new Error("No refresh token available");
     }
 
-    // request() 메서드와 동일한 URL 생성 로직 사용 (프록시 지원)
-    let url: string;
-    if (typeof window !== "undefined") {
-      const isLocalhost =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-
-      if (!isLocalhost) {
-        // 프로덕션: 프록시 사용
-        url = "/api/proxy/auth/refresh";
-      } else {
-        // 개발 환경: 직접 접근
-        url = `${this.baseUrl}/api/auth/refresh`;
-      }
-    } else {
-      // 서버 사이드: 직접 접근
-      url = `${this.baseUrl}/api/auth/refresh`;
-    }
+    // 직접 백엔드 연결
+    const url = `${this.baseUrl}/api/auth/refresh`;
 
     try {
       const response = await fetch(url, {
@@ -213,44 +183,18 @@ class ApiClient {
     options: RequestInit = {},
     retry: boolean = true
   ): Promise<T> {
-    // 클라이언트 사이드에서 localhost가 아니면 항상 프록시 사용 (Mixed Content 방지)
-    let url: string;
-
-    if (typeof window !== "undefined") {
-      const isLocalhost =
-        window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1";
-
-      if (!isLocalhost) {
-        // 프로덕션: 항상 프록시 사용 (절대 경로 사용 금지)
-        // 프록시 경로로 변환: /api/auth/signup -> /api/proxy/auth/signup
-        const proxyPath = endpoint.replace(/^\/api\//, "/api/proxy/");
-        url = proxyPath;
-      } else {
-        // 개발 환경: 직접 접근
-        url = `${this.baseUrl}${endpoint}`;
-      }
-    } else {
-      // 서버 사이드: 직접 접근 (환경변수 사용)
-      url = `${this.baseUrl}${endpoint}`;
-    }
+    // 직접 백엔드 연결 (프록시 제거)
+    const url = `${this.baseUrl}${endpoint}`;
 
     // 디버깅: API 요청 URL 로그 출력
     console.log(`[API Client] Request URL: ${url}`);
-    console.log(
-      `[API Client] baseUrl: ${this.baseUrl || "(empty - using proxy)"}`
-    );
+    console.log(`[API Client] baseUrl: ${this.baseUrl}`);
     console.log(`[API Client] endpoint: ${endpoint}`);
-    console.log(
-      `[API Client] hostname: ${
-        typeof window !== "undefined" ? window.location.hostname : "server"
-      }`
-    );
-
-    // 프로덕션에서 HTTP URL 사용 시도 감지
-    if (typeof window !== "undefined" && url.startsWith("http://")) {
-      console.error(
-        `[API Client] ERROR: 프로덕션에서 HTTP URL 사용 시도! 프록시를 사용해야 합니다: ${url}`
+    
+    // Mixed Content 경고 (HTTPS 사이트에서 HTTP 요청 시)
+    if (typeof window !== "undefined" && window.location.protocol === "https:" && url.startsWith("http://")) {
+      console.warn(
+        `[API Client] WARNING: HTTPS 사이트에서 HTTP 백엔드로 요청 시도. Mixed Content 정책으로 차단될 수 있습니다: ${url}`
       );
     }
 

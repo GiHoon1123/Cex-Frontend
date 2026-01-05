@@ -105,14 +105,16 @@ export default function MyPagePage() {
     fetchMyPageData();
   }, [router]);
 
-  const fetchWalletData = async () => {
+  const fetchWalletData = async (silent: boolean = false) => {
     if (!apiClient.isAuthenticated()) {
       setLoading(false);
       return;
     }
 
     try {
-      setError(null);
+      if (!silent) {
+        setError(null);
+      }
       // 내 지갑 목록 조회
       const walletsResponse = await apiClient.getUserWallets();
 
@@ -121,15 +123,28 @@ export default function MyPagePage() {
         const myWallet = walletsResponse.wallets[0];
         setWallet(myWallet);
 
-        // 지갑 잔액 조회
-        const balanceResponse = await apiClient.getWalletBalance(myWallet.id);
-        setBalance(balanceResponse);
+        // 지갑 잔액 조회 (에러는 조용히 처리)
+        try {
+          const balanceResponse = await apiClient.getWalletBalance(myWallet.id);
+          setBalance(balanceResponse);
+        } catch (balanceErr) {
+          // Solana network error 등은 조용히 처리
+          console.error("지갑 잔액 조회 실패 (무시됨):", balanceErr);
+          if (!silent) {
+            // silent 모드가 아닐 때만 에러 표시 (일반 조회 시)
+            setError(
+              balanceErr instanceof Error ? balanceErr.message : "지갑 잔액을 불러올 수 없습니다."
+            );
+          }
+        }
       }
     } catch (err) {
       console.error("지갑 정보 조회 실패:", err);
-      setError(
-        err instanceof Error ? err.message : "지갑 정보를 불러올 수 없습니다."
-      );
+      if (!silent) {
+        setError(
+          err instanceof Error ? err.message : "지갑 정보를 불러올 수 없습니다."
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -146,12 +161,13 @@ export default function MyPagePage() {
 
     try {
       await apiClient.createWallet();
-      // 지갑 생성 후 다시 조회
-      await fetchWalletData();
       showAlert("지갑이 성공적으로 생성되었습니다.", "success");
 
       // 지갑 생성 후 경고 팝업 표시 (한번만)
       setJustCreatedWallet(true);
+
+      // 지갑 생성 후 다시 조회 (에러는 무시)
+      await fetchWalletData(true); // silent 모드로 호출
     } catch (err) {
       // 에러는 콘솔에만 기록하고 사용자에게는 표시하지 않음
       console.error("지갑 생성 실패:", err);

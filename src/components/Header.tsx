@@ -14,7 +14,6 @@ export default function Header() {
   const [showLogin, setShowLogin] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [justLoggedIn, setJustLoggedIn] = useState(false);
   const [showLoginInfoModal, setShowLoginInfoModal] = useState(false);
   const [shouldShowLoginInfo, markLoginInfoAsSeen] = useOnceModal('has_seen_login_wallet_info');
 
@@ -23,18 +22,18 @@ export default function Header() {
     setIsAuthenticated(apiClient.isAuthenticated());
   }, []);
 
-  // 로그인 성공 후 팝업 표시 체크
-  useEffect(() => {
-    if (justLoggedIn && shouldShowLoginInfo) {
-      setShowLoginInfoModal(true);
-      setJustLoggedIn(false);
-    }
-  }, [justLoggedIn, shouldShowLoginInfo]);
 
   const handleLoginSuccess = () => {
     setIsAuthenticated(true);
     setShowLogin(false);
-    setJustLoggedIn(true);
+    // 로그인 성공 시 localStorage를 다시 확인하여 알림 표시 여부 결정
+    const hasSeen = typeof window !== 'undefined' ? localStorage.getItem('has_seen_login_wallet_info') : null;
+    if (!hasSeen) {
+      // 약간의 지연을 두어 로그인 모달이 완전히 닫힌 후 알림 표시
+      setTimeout(() => {
+        setShowLoginInfoModal(true);
+      }, 500);
+    }
   };
 
   const handleCloseLoginInfo = () => {
@@ -46,10 +45,13 @@ export default function Header() {
     try {
       await apiClient.logout();
       setIsAuthenticated(false);
+      // 로그아웃 후 메인 페이지로 이동
+      router.push('/');
     } catch (error) {
       console.error('Logout error:', error);
-      // 에러가 발생해도 로컬 상태는 업데이트
+      // 에러가 발생해도 로컬 상태는 업데이트하고 메인 페이지로 이동
       setIsAuthenticated(false);
+      router.push('/');
     }
   };
 

@@ -76,12 +76,26 @@ async function proxyRequest(
       }
     });
 
-    // 백엔드로 프록시 요청
-    const response = await fetch(url.toString(), {
-      method,
-      headers,
-      body,
-    });
+    // 백엔드로 프록시 요청 (타임아웃 설정)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10초 타임아웃
+    
+    let response: Response;
+    try {
+      response = await fetch(url.toString(), {
+        method,
+        headers,
+        body,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Request timeout: 백엔드 서버 응답이 너무 느립니다.');
+      }
+      throw error;
+    }
 
     // 응답 데이터 가져오기
     const data = await response.text();
