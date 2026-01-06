@@ -143,13 +143,21 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
             
             // SOL이고 평균 매수가가 있으면 재계산 (백엔드 값이 없거나 부정확할 수 있음)
             // positions API 실패해도 이전에 받은 average_entry_price가 있으면 계산 시도
+            // 주의: total_bought_cost는 백엔드에서 받은 실제 지불 금액을 사용 (평균 매수가 × 보유량이 아님)
             if (b.mint_address === 'SOL' && averageEntryPrice && balance > 0 && value) {
-              const avgPrice = parseFloat(averageEntryPrice);
-              const totalBoughtCost = avgPrice * balance;
-              const currentValue = parseFloat(value);
-              const pnl = currentValue - totalBoughtCost;
-              finalPnl = pnl.toFixed(2);
-              finalPnlPercent = totalBoughtCost > 0 ? ((pnl / totalBoughtCost) * 100).toFixed(2) : '0.00';
+              // 백엔드에서 받은 total_bought_cost 사용 (실제 지불한 총 금액)
+              const totalBoughtCost = positionData?.total_bought_cost 
+                ? parseFloat(positionData.total_bought_cost)
+                : prevPosition?.total_bought_cost 
+                  ? parseFloat(prevPosition.total_bought_cost)
+                  : null;
+              
+              if (totalBoughtCost && totalBoughtCost > 0) {
+                const currentValue = parseFloat(value);
+                const pnl = currentValue - totalBoughtCost;
+                finalPnl = pnl.toFixed(2);
+                finalPnlPercent = ((pnl / totalBoughtCost) * 100).toFixed(2);
+              }
             }
             
             return {
@@ -312,27 +320,31 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
         needsUpdate = true;
       }
       
-      // 손익 재계산 (평균 매수가 * 총 보유량으로 총 매수 비용 계산)
+      // 손익 재계산 (백엔드에서 받은 total_bought_cost 사용 - 실제 지불한 총 금액)
       if (updatedSolPosition.average_entry_price && parseFloat(updatedSolPosition.current_balance) > 0) {
-        const averageEntryPrice = parseFloat(updatedSolPosition.average_entry_price);
-        const totalBalance = parseFloat(updatedSolPosition.current_balance);
-        const totalBoughtCost = averageEntryPrice * totalBalance;
-        const currentValue = parseFloat(newValue);
-        const pnl = currentValue - totalBoughtCost;
-        const newUnrealizedPnl = pnl.toFixed(2);
-        const newUnrealizedPnlPercent = totalBoughtCost > 0 ? ((pnl / totalBoughtCost) * 100).toFixed(2) : '0.00';
+        // total_bought_cost는 백엔드에서 받은 실제 지불 금액 사용 (평균 매수가 × 보유량이 아님)
+        const totalBoughtCost = updatedSolPosition.total_bought_cost 
+          ? parseFloat(updatedSolPosition.total_bought_cost)
+          : null;
         
-        // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시 - 더 큰 임계값)
-        const oldPnl = updatedSolPosition.unrealized_pnl ? parseFloat(updatedSolPosition.unrealized_pnl) : 0;
-        const oldPnlPercent = updatedSolPosition.unrealized_pnl_percent ? parseFloat(updatedSolPosition.unrealized_pnl_percent) : 0;
-        
-        if (
-          Math.abs(oldPnl - parseFloat(newUnrealizedPnl)) >= 0.1 ||
-          Math.abs(oldPnlPercent - parseFloat(newUnrealizedPnlPercent)) >= 0.1
-        ) {
-          updatedSolPosition.unrealized_pnl = newUnrealizedPnl;
-          updatedSolPosition.unrealized_pnl_percent = newUnrealizedPnlPercent;
-          needsUpdate = true;
+        if (totalBoughtCost && totalBoughtCost > 0) {
+          const currentValue = parseFloat(newValue);
+          const pnl = currentValue - totalBoughtCost;
+          const newUnrealizedPnl = pnl.toFixed(2);
+          const newUnrealizedPnlPercent = ((pnl / totalBoughtCost) * 100).toFixed(2);
+          
+          // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시 - 더 큰 임계값)
+          const oldPnl = updatedSolPosition.unrealized_pnl ? parseFloat(updatedSolPosition.unrealized_pnl) : 0;
+          const oldPnlPercent = updatedSolPosition.unrealized_pnl_percent ? parseFloat(updatedSolPosition.unrealized_pnl_percent) : 0;
+          
+          if (
+            Math.abs(oldPnl - parseFloat(newUnrealizedPnl)) >= 0.1 ||
+            Math.abs(oldPnlPercent - parseFloat(newUnrealizedPnlPercent)) >= 0.1
+          ) {
+            updatedSolPosition.unrealized_pnl = newUnrealizedPnl;
+            updatedSolPosition.unrealized_pnl_percent = newUnrealizedPnlPercent;
+            needsUpdate = true;
+          }
         }
       }
       
