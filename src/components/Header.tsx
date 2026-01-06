@@ -45,13 +45,13 @@ export default function Header() {
     try {
       await apiClient.logout();
       setIsAuthenticated(false);
-      // 로그아웃 후 메인 페이지로 이동
-      router.push('/');
+      // 로그아웃 후 페이지 새로고침하여 모든 상태 초기화
+      window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
-      // 에러가 발생해도 로컬 상태는 업데이트하고 메인 페이지로 이동
+      // 에러가 발생해도 로컬 상태는 업데이트하고 페이지 새로고침
       setIsAuthenticated(false);
-      router.push('/');
+      window.location.href = '/';
     }
   };
 

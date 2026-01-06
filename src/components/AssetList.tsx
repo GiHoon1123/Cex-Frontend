@@ -28,6 +28,7 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
     const fetchPositions = async () => {
       if (!apiClient.isAuthenticated()) {
         setLoading(false);
+        setPositions([]); // 로그아웃 시 positions 초기화
         return;
       }
 
