@@ -295,10 +295,10 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
       const oldPrice = solPosition.current_market_price ? parseFloat(solPosition.current_market_price) : 0;
       const oldValue = solPosition.current_value ? parseFloat(solPosition.current_value) : 0;
       
-      // 0.1 USDT 이하 차이는 무시 (더 큰 임계값으로 깜빡임 감소)
+      // 0.01 USDT 이하 차이는 무시 (임계값 축소로 빠른 가격 변동에 대응)
       if (
-        Math.abs(oldPrice - roundedPrice) < 0.1 &&
-        Math.abs(oldValue - parseFloat(newValue)) < 0.1
+        Math.abs(oldPrice - roundedPrice) < 0.01 &&
+        Math.abs(oldValue - parseFloat(newValue)) < 0.01
       ) {
         return prevPositions; // 변경사항 없으면 이전 상태 유지
       }
@@ -329,14 +329,16 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
           : null;
         
         // total_bought_cost가 유효하고, 평균 매수가와 일관성이 있는 경우에만 재계산
-        // 일관성 체크: total_bought_cost ≈ average_entry_price × current_balance (10% 오차 허용)
+        // 일관성 체크: total_bought_cost ≈ average_entry_price × current_balance (20% 오차 허용 - 매도 후에도 작동)
         // 매수/매도 직후에는 positions API가 아직 업데이트되지 않았을 수 있어서,
         // total_bought_cost가 평균 매수가와 일관성이 없으면 재계산하지 않음
         const expectedTotalCost = averageEntryPrice * totalBalance;
         const isCostValid = totalBoughtCost && totalBoughtCost > 0;
-        const isCostConsistent = isCostValid && Math.abs(totalBoughtCost - expectedTotalCost) < expectedTotalCost * 0.1;
+        // 매도 후에는 total_bought_cost > expectedTotalCost가 될 수 있으므로 오차 허용 범위 확대
+        const isCostConsistent = isCostValid && Math.abs(totalBoughtCost - expectedTotalCost) < expectedTotalCost * 0.2;
         
-        if (averageEntryPrice > 0 && isCostConsistent) {
+        // total_bought_cost가 없어도 평균 매수가가 있으면 재계산 (가격 변동 추적)
+        if (averageEntryPrice > 0 && (isCostConsistent || !totalBoughtCost)) {
           // 백엔드 계산 방식: (현재가 - 평균 매수가) / 평균 매수가 × 100
           const newUnrealizedPnlPercent = ((currentPrice - averageEntryPrice) / averageEntryPrice * 100).toFixed(2);
           
@@ -344,13 +346,13 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
           const currentValue = parseFloat(newValue);
           const newUnrealizedPnl = (currentValue - expectedTotalCost).toFixed(2);
           
-          // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시)
+          // 손익이 실제로 변경되었는지 확인 (0.01% 이하 차이는 무시 - 빠른 가격 변동 대응)
           const oldPnl = updatedSolPosition.unrealized_pnl ? parseFloat(updatedSolPosition.unrealized_pnl) : 0;
           const oldPnlPercent = updatedSolPosition.unrealized_pnl_percent ? parseFloat(updatedSolPosition.unrealized_pnl_percent) : 0;
           
           if (
-            Math.abs(oldPnl - parseFloat(newUnrealizedPnl)) >= 0.1 ||
-            Math.abs(oldPnlPercent - parseFloat(newUnrealizedPnlPercent)) >= 0.1
+            Math.abs(oldPnl - parseFloat(newUnrealizedPnl)) >= 0.01 ||
+            Math.abs(oldPnlPercent - parseFloat(newUnrealizedPnlPercent)) >= 0.01
           ) {
             updatedSolPosition.unrealized_pnl = newUnrealizedPnl;
             updatedSolPosition.unrealized_pnl_percent = newUnrealizedPnlPercent;
