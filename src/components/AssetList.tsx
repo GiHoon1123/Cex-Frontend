@@ -64,7 +64,12 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
         const prevPositionsMap = new Map(positions.map(p => [p.mint, p]));
         
         // balances를 positions 형식으로 변환하고, positions API 데이터와 병합
+        // 잔고가 0인 경우 필터링 (전량 매도 후에도 이전 포지션 데이터가 표시되는 문제 방지)
         const convertedPositions: AssetPosition[] = balancesResponse.balances
+          .filter(b => {
+            const balance = parseFloat(b.available) + parseFloat(b.locked);
+            return balance > 0; // 잔고가 0보다 큰 경우만 포함
+          })
           .map(b => {
             const balance = parseFloat(b.available) + parseFloat(b.locked);
             
