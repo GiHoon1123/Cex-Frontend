@@ -136,6 +136,43 @@ class TokenStorage {
   }
 }
 
+// 요청 제한 관리
+class RateLimiter {
+  private requestTimestamps: number[] = [];
+  private readonly maxRequests: number = 60; // 1분에 최대 60개
+  private readonly timeWindow: number = 60 * 1000; // 1분 (밀리초)
+
+  // 요청 가능 여부 확인
+  canMakeRequest(): boolean {
+    const now = Date.now();
+    
+    // 1분 이전의 요청 타임스탬프 제거
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (timestamp) => now - timestamp < this.timeWindow
+    );
+    
+    // 현재 요청 수가 제한을 초과하는지 확인
+    return this.requestTimestamps.length < this.maxRequests;
+  }
+
+  // 요청 기록
+  recordRequest(): void {
+    this.requestTimestamps.push(Date.now());
+  }
+
+  // 남은 요청 수 반환
+  getRemainingRequests(): number {
+    const now = Date.now();
+    this.requestTimestamps = this.requestTimestamps.filter(
+      (timestamp) => now - timestamp < this.timeWindow
+    );
+    return Math.max(0, this.maxRequests - this.requestTimestamps.length);
+  }
+}
+
+// 전역 요청 제한기 (모든 사용자 공유)
+const globalRateLimiter = new RateLimiter();
+
 // API 클라이언트
 class ApiClient {
   private baseUrl: string;
@@ -185,6 +222,32 @@ class ApiClient {
     options: RequestInit = {},
     retry: boolean = true
   ): Promise<T> {
+    // 요청 제한 확인 (인증 관련 엔드포인트는 제외)
+    const isAuthEndpoint = 
+      endpoint.includes("/auth/signup") ||
+      endpoint.includes("/auth/signin") ||
+      endpoint.includes("/auth/refresh") ||
+      endpoint.includes("/auth/logout");
+    
+    if (!isAuthEndpoint && typeof window !== "undefined") {
+      if (!globalRateLimiter.canMakeRequest()) {
+        // 요청 제한 초과 시 전역 이벤트 발생
+        const remainingRequests = globalRateLimiter.getRemainingRequests();
+        const event = new CustomEvent('rateLimitExceeded', {
+          detail: {
+            message: `현재 서버가 불안정하여 전체 요청이 제한되어 있습니다.\n1분에 60개 요청으로 제한되어 있으며, 잠시 후 다시 시도해주세요.`,
+            remainingRequests: remainingRequests,
+          },
+        });
+        window.dispatchEvent(event);
+        
+        throw new Error('요청 제한을 초과했습니다. 1분에 60개 요청으로 제한되어 있습니다. 잠시 후 다시 시도해주세요.');
+      }
+      
+      // 요청 기록
+      globalRateLimiter.recordRequest();
+    }
+
     // 직접 백엔드 연결 (프록시 제거)
     const url = `${this.baseUrl}${endpoint}`;
 

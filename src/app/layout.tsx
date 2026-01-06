@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Header from "@/components/Header";
 import AutoLogoutProvider from "@/components/AutoLogoutProvider";
 import { SolPriceProvider } from "@/contexts/SolPriceContext";
+import RateLimitHandler from "@/components/RateLimitHandler";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -19,6 +20,7 @@ export default function RootLayout({
       <body className="bg-gray-900 text-white min-h-screen">
         <AutoLogoutProvider>
           <SolPriceProvider>
+            <RateLimitHandler />
             <Header />
             {children}
           </SolPriceProvider>
