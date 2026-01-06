@@ -133,31 +133,17 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
               value = positionData.current_value || null;
             }
             
-            // 손익은 백엔드에서 받은 값을 우선 사용하고, 없거나 SOL인 경우에만 재계산
-            // (깜빡임 방지를 위해 초기 로드 시에는 백엔드 값 사용)
+            // 손익은 백엔드에서 받은 값을 우선 사용 (백엔드가 정확한 계산을 수행)
+            // 프론트엔드에서 재계산하지 않음 (백엔드의 total_bought_cost와 정확한 계산 로직 사용)
             let finalPnl: string | null = positionData?.unrealized_pnl || null;
             let finalPnlPercent: string | null = positionData?.unrealized_pnl_percent || null;
             
-            // average_entry_price는 positions API에서 가져오거나, 실패 시 이전 positions에서 가져오기
-            const averageEntryPrice = positionData?.average_entry_price || prevPosition?.average_entry_price || null;
-            
-            // SOL이고 평균 매수가가 있으면 재계산 (백엔드 값이 없거나 부정확할 수 있음)
-            // positions API 실패해도 이전에 받은 average_entry_price가 있으면 계산 시도
-            // 주의: total_bought_cost는 백엔드에서 받은 실제 지불 금액을 사용 (평균 매수가 × 보유량이 아님)
-            if (b.mint_address === 'SOL' && averageEntryPrice && balance > 0 && value) {
-              // 백엔드에서 받은 total_bought_cost 사용 (실제 지불한 총 금액)
-              const totalBoughtCost = positionData?.total_bought_cost 
-                ? parseFloat(positionData.total_bought_cost)
-                : prevPosition?.total_bought_cost 
-                  ? parseFloat(prevPosition.total_bought_cost)
-                  : null;
-              
-              if (totalBoughtCost && totalBoughtCost > 0) {
-                const currentValue = parseFloat(value);
-                const pnl = currentValue - totalBoughtCost;
-                finalPnl = pnl.toFixed(2);
-                finalPnlPercent = ((pnl / totalBoughtCost) * 100).toFixed(2);
-              }
+            // 백엔드에서 값을 받지 못한 경우에만 이전 값 사용 (재계산하지 않음)
+            if (!finalPnl && prevPosition?.unrealized_pnl) {
+              finalPnl = prevPosition.unrealized_pnl;
+            }
+            if (!finalPnlPercent && prevPosition?.unrealized_pnl_percent) {
+              finalPnlPercent = prevPosition.unrealized_pnl_percent;
             }
             
             return {
@@ -320,20 +306,22 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
         needsUpdate = true;
       }
       
-      // 손익 재계산 (백엔드에서 받은 total_bought_cost 사용 - 실제 지불한 총 금액)
+      // 손익 재계산 (백엔드 계산 방식과 동일: (현재가 - 평균 매수가) / 평균 매수가 × 100)
       if (updatedSolPosition.average_entry_price && parseFloat(updatedSolPosition.current_balance) > 0) {
-        // total_bought_cost는 백엔드에서 받은 실제 지불 금액 사용 (평균 매수가 × 보유량이 아님)
-        const totalBoughtCost = updatedSolPosition.total_bought_cost 
-          ? parseFloat(updatedSolPosition.total_bought_cost)
-          : null;
+        const averageEntryPrice = parseFloat(updatedSolPosition.average_entry_price);
+        const currentPrice = parseFloat(newMarketPrice);
         
-        if (totalBoughtCost && totalBoughtCost > 0) {
-          const currentValue = parseFloat(newValue);
-          const pnl = currentValue - totalBoughtCost;
-          const newUnrealizedPnl = pnl.toFixed(2);
-          const newUnrealizedPnlPercent = ((pnl / totalBoughtCost) * 100).toFixed(2);
+        if (averageEntryPrice > 0) {
+          // 백엔드 계산 방식: (현재가 - 평균 매수가) / 평균 매수가 × 100
+          const newUnrealizedPnlPercent = ((currentPrice - averageEntryPrice) / averageEntryPrice * 100).toFixed(2);
           
-          // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시 - 더 큰 임계값)
+          // 미실현 손익 = (현재 평가액 - 평균 매수가 × 보유량)
+          const currentValue = parseFloat(newValue);
+          const totalBalance = parseFloat(updatedSolPosition.current_balance);
+          const totalBoughtCost = averageEntryPrice * totalBalance;
+          const newUnrealizedPnl = (currentValue - totalBoughtCost).toFixed(2);
+          
+          // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시)
           const oldPnl = updatedSolPosition.unrealized_pnl ? parseFloat(updatedSolPosition.unrealized_pnl) : 0;
           const oldPnlPercent = updatedSolPosition.unrealized_pnl_percent ? parseFloat(updatedSolPosition.unrealized_pnl_percent) : 0;
           
