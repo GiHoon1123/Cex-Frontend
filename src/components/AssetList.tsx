@@ -248,11 +248,12 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
       const oldPrice = solPosition.current_market_price ? parseFloat(solPosition.current_market_price) : 0;
       const oldValue = solPosition.current_value ? parseFloat(solPosition.current_value) : 0;
       
-      // 0.01 USDT 이하 차이는 무시 (임계값 축소로 빠른 가격 변동에 대응)
-      if (
-        Math.abs(oldPrice - roundedPrice) < 0.01 &&
-        Math.abs(oldValue - parseFloat(newValue)) < 0.01
-      ) {
+      // 가격이 변경되었는지 확인 (0.0001 USDT 이상 차이면 업데이트 - 실시간 반영 강화)
+      // solPrice는 Context에서 실시간으로 업데이트되므로, 작은 차이도 반영해야 함
+      const priceChanged = Math.abs(oldPrice - roundedPrice) >= 0.0001;
+      const valueChanged = Math.abs(oldValue - parseFloat(newValue)) >= 0.01;
+      
+      if (!priceChanged && !valueChanged) {
         return prevPositions; // 변경사항 없으면 이전 상태 유지
       }
       
@@ -260,15 +261,11 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
       const updatedSolPosition = { ...solPosition };
       let needsUpdate = false;
       
-      // 가격/평가액 업데이트
-      if (updatedSolPosition.current_market_price !== newMarketPrice) {
-        updatedSolPosition.current_market_price = newMarketPrice;
-        needsUpdate = true;
-      }
-      if (updatedSolPosition.current_value !== newValue) {
-        updatedSolPosition.current_value = newValue;
-        needsUpdate = true;
-      }
+      // 가격/평가액 업데이트 (solPrice가 변경되었으면 항상 업데이트)
+      // solPrice는 Context에서 실시간으로 업데이트되므로, 항상 최신 가격 반영
+      updatedSolPosition.current_market_price = newMarketPrice;
+      updatedSolPosition.current_value = newValue;
+      needsUpdate = true;
       
       // 손익 재계산 (백엔드 계산 방식과 동일: (현재가 - 평균 매수가) / 평균 매수가 × 100)
       // 주의: positions API가 아직 업데이트되지 않았을 수 있으므로, 
@@ -645,12 +642,9 @@ const PositionItem = memo(({ position, solPrice, formatNumber, formatCurrency, i
   if (prev.mint === 'SOL' && next.mint === 'SOL') {
     const prevPrice = prevProps.solPrice;
     const nextPrice = nextProps.solPrice;
-    // solPrice가 변경되었고, 실제로 차이가 0.1 이상이면 리렌더링
-    if (prevPrice !== nextPrice) {
-      const priceDiff = Math.abs((prevPrice || 0) - (nextPrice || 0));
-      if (priceDiff >= 0.1) {
-        return false; // 리렌더링 필요
-      }
+    // solPrice가 변경되었으면 항상 리렌더링 (실시간 가격 반영 - 임계값 제거)
+    if (prevPrice !== nextPrice && nextPrice !== null) {
+      return false; // 리렌더링 필요
     }
     
     // SOL: 핵심 필드만 비교 (가격/손익은 solPrice useEffect에서 처리)
