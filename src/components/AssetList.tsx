@@ -96,9 +96,11 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
         
         // positions API에서 추가 정보 가져오기 (손익 등)
         let positionsData: AssetPosition[] = [];
+        let positionsApiSuccess = false;
         try {
           const positionsResponse = await apiClient.getPositions();
           positionsData = positionsResponse.positions;
+          positionsApiSuccess = true;
         } catch (positionsError) {
           // positions API 실패해도 계속 진행 (balances만 사용)
           console.log('Positions API를 사용할 수 없어 Balances만 사용합니다.');
@@ -151,19 +153,28 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
               current_balance: balance.toString(),
               available: b.available,
               locked: b.locked,
-              // average_entry_price는 positions API에서 가져오거나, 실패 시 이전 positions에서 유지
-              average_entry_price: positionData?.average_entry_price || prevPosition?.average_entry_price || null,
-              total_bought_amount: positionData?.total_bought_amount || prevPosition?.total_bought_amount || '0',
-              total_bought_cost: positionData?.total_bought_cost || prevPosition?.total_bought_cost || '0',
+              // average_entry_price는 positions API가 성공했을 때만 새로운 값 사용
+              // 매수/매도 직후 positions API가 아직 업데이트되지 않았을 수 있으므로 이전 값 유지
+              average_entry_price: positionsApiSuccess && positionData?.average_entry_price 
+                ? positionData.average_entry_price 
+                : prevPosition?.average_entry_price || null,
+              total_bought_amount: positionsApiSuccess && positionData?.total_bought_amount 
+                ? positionData.total_bought_amount 
+                : prevPosition?.total_bought_amount || '0',
+              total_bought_cost: positionsApiSuccess && positionData?.total_bought_cost 
+                ? positionData.total_bought_cost 
+                : prevPosition?.total_bought_cost || '0',
               current_market_price: marketPrice,
               current_value: value,
               unrealized_pnl: finalPnl,
               unrealized_pnl_percent: finalPnlPercent,
-              trade_summary: positionData?.trade_summary || prevPosition?.trade_summary || {
-                total_buy_trades: 0,
-                total_sell_trades: 0,
-                realized_pnl: '0',
-              },
+              trade_summary: positionsApiSuccess && positionData?.trade_summary 
+                ? positionData.trade_summary 
+                : prevPosition?.trade_summary || {
+                    total_buy_trades: 0,
+                    total_sell_trades: 0,
+                    realized_pnl: '0',
+                  },
             };
           });
         
@@ -307,19 +318,31 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
       }
       
       // 손익 재계산 (백엔드 계산 방식과 동일: (현재가 - 평균 매수가) / 평균 매수가 × 100)
+      // 주의: positions API가 아직 업데이트되지 않았을 수 있으므로, 
+      // total_bought_cost가 유효하고 평균 매수가와 일관성이 있는 경우에만 재계산
       if (updatedSolPosition.average_entry_price && parseFloat(updatedSolPosition.current_balance) > 0) {
         const averageEntryPrice = parseFloat(updatedSolPosition.average_entry_price);
         const currentPrice = parseFloat(newMarketPrice);
+        const totalBalance = parseFloat(updatedSolPosition.current_balance);
+        const totalBoughtCost = updatedSolPosition.total_bought_cost 
+          ? parseFloat(updatedSolPosition.total_bought_cost) 
+          : null;
         
-        if (averageEntryPrice > 0) {
+        // total_bought_cost가 유효하고, 평균 매수가와 일관성이 있는 경우에만 재계산
+        // 일관성 체크: total_bought_cost ≈ average_entry_price × current_balance (10% 오차 허용)
+        // 매수/매도 직후에는 positions API가 아직 업데이트되지 않았을 수 있어서,
+        // total_bought_cost가 평균 매수가와 일관성이 없으면 재계산하지 않음
+        const expectedTotalCost = averageEntryPrice * totalBalance;
+        const isCostValid = totalBoughtCost && totalBoughtCost > 0;
+        const isCostConsistent = isCostValid && Math.abs(totalBoughtCost - expectedTotalCost) < expectedTotalCost * 0.1;
+        
+        if (averageEntryPrice > 0 && isCostConsistent) {
           // 백엔드 계산 방식: (현재가 - 평균 매수가) / 평균 매수가 × 100
           const newUnrealizedPnlPercent = ((currentPrice - averageEntryPrice) / averageEntryPrice * 100).toFixed(2);
           
           // 미실현 손익 = (현재 평가액 - 평균 매수가 × 보유량)
           const currentValue = parseFloat(newValue);
-          const totalBalance = parseFloat(updatedSolPosition.current_balance);
-          const totalBoughtCost = averageEntryPrice * totalBalance;
-          const newUnrealizedPnl = (currentValue - totalBoughtCost).toFixed(2);
+          const newUnrealizedPnl = (currentValue - expectedTotalCost).toFixed(2);
           
           // 손익이 실제로 변경되었는지 확인 (0.1 이하 차이는 무시)
           const oldPnl = updatedSolPosition.unrealized_pnl ? parseFloat(updatedSolPosition.unrealized_pnl) : 0;
@@ -334,6 +357,8 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
             needsUpdate = true;
           }
         }
+        // total_bought_cost가 일관성이 없으면 재계산하지 않음 (positions API가 아직 업데이트되지 않았을 수 있음)
+        // 이전 값을 유지하여 중간 상태가 보이지 않도록 함
       }
       
       // 실제로 변경사항이 없으면 이전 배열 반환
