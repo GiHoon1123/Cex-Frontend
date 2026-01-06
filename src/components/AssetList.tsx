@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, memo, useCallback, useRef } from 'react';
 import { apiClient, AssetPosition, Balance } from '@/lib/api';
+import { useSolPrice } from '@/contexts/SolPriceContext';
 
 interface AssetListProps {
   hideHeader?: boolean;
@@ -12,60 +13,12 @@ export default function AssetList({ hideHeader = false }: AssetListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
-  const [solPrice, setSolPrice] = useState<number | null>(null); // SOL 현재 가격 (USDT)
+  const { solPrice } = useSolPrice(); // Context에서 가격 가져오기
   const hasInitiallyLoaded = useRef(false); // 초기 로드 완료 여부
 
   // Hydration 에러 방지: 클라이언트에서만 렌더링
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  // SOL 현재 가격 가져오기 (바이낸스 WebSocket - 실시간)
-  useEffect(() => {
-    // 초기 가격 가져오기 (REST API)
-    const fetchInitialPrice = async () => {
-      try {
-        const response = await fetch('https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT');
-        const data = await response.json();
-        const price = parseFloat(data.price) || null;
-        if (price) setSolPrice(price);
-      } catch (error) {
-        console.error('SOL 초기 가격 가져오기 실패:', error);
-      }
-    };
-
-    fetchInitialPrice();
-
-    // WebSocket으로 실시간 가격 받기
-    const ws = new WebSocket('wss://stream.binance.com:9443/ws/solusdt@ticker');
-
-    ws.onopen = () => {
-      console.log('AssetList: SOL 가격 WebSocket 연결됨');
-    };
-
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const price = parseFloat(data.c) || null; // 현재가 (last price)
-        if (price && price > 0) {
-          setSolPrice(price);
-        }
-      } catch (error) {
-        console.error('SOL 가격 WebSocket 데이터 파싱 실패:', error);
-      }
-    };
-
-    ws.onerror = (error) => {
-      console.warn('AssetList: SOL 가격 WebSocket 연결 오류');
-    };
-
-    ws.onclose = () => {
-      console.warn('AssetList: SOL 가격 WebSocket 연결 종료');
-    };
-
-    return () => {
-      ws.close();
-    };
   }, []);
 
   // 자산 내역 가져오기 (초기 로드 및 주기적 갱신)

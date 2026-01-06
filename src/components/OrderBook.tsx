@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { useSolPrice } from '@/contexts/SolPriceContext';
 
 interface OrderBookEntry {
   price: number;
@@ -11,11 +12,9 @@ interface OrderBookEntry {
 export default function OrderBook() {
   const [buyOrders, setBuyOrders] = useState<OrderBookEntry[]>([]);
   const [sellOrders, setSellOrders] = useState<OrderBookEntry[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
-  const [priceChange, setPriceChange] = useState<number>(0);
+  const { solPrice: currentPrice, priceChange } = useSolPrice(); // Context에서 가격 가져오기
   const [loading, setLoading] = useState(true);
   const wsDepthRef = useRef<WebSocket | null>(null);
-  const wsTickerRef = useRef<WebSocket | null>(null);
   const depthSnapshotRef = useRef<{ bids: string[][]; asks: string[][] } | null>(null);
 
   useEffect(() => {
@@ -115,40 +114,9 @@ export default function OrderBook() {
       console.warn('호가창 WebSocket 연결 종료');
     };
 
-    // 현재가 WebSocket (ticker stream)
-    wsTickerRef.current = new WebSocket('wss://stream.binance.com:9443/ws/solusdt@ticker');
-
-    wsTickerRef.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const price = parseFloat(data.c) || 0; // 현재가
-        const change = parseFloat(data.P) || 0; // 24시간 변동률
-
-        if (price > 0) {
-          setCurrentPrice(price);
-          setPriceChange(change);
-        }
-      } catch (error) {
-        console.error('Ticker 데이터 파싱 실패:', error);
-      }
-    };
-
-    wsTickerRef.current.onerror = (error) => {
-      // WebSocket 에러는 조용히 처리 (재연결 시도하지 않음)
-      console.warn('현재가 WebSocket 연결 오류 (자동 재연결 시도)');
-    };
-
-    wsTickerRef.current.onclose = () => {
-      // 연결이 끊어지면 자동으로 재연결 시도
-      console.warn('현재가 WebSocket 연결 종료');
-    };
-
     return () => {
       if (wsDepthRef.current) {
         wsDepthRef.current.close();
-      }
-      if (wsTickerRef.current) {
-        wsTickerRef.current.close();
       }
     };
   }, []);
@@ -193,14 +161,14 @@ export default function OrderBook() {
         {/* 현재가 */}
         <div className="text-center py-3 border-y border-gray-700 my-3 flex-shrink-0">
           <div className="text-xl font-bold text-blue-400">
-            {currentPrice > 0 ? currentPrice.toFixed(2) : '--'}
+            {currentPrice ? currentPrice.toFixed(2) : '--'}
           </div>
           <div
             className={`text-xs mt-1 ${
               priceChange >= 0 ? 'text-red-400' : 'text-blue-400'
             }`}
           >
-            {currentPrice > 0 && (
+            {currentPrice && (
               <>
                 {priceChange >= 0 ? '+' : ''}
                 {priceChange.toFixed(2)}%
