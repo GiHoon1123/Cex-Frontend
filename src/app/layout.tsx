@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
-import Header from "@/components/Header";
 import AutoLogoutProvider from "@/components/AutoLogoutProvider";
-import { SolPriceProvider } from "@/contexts/SolPriceContext";
+import Header from "@/components/Header";
 import RateLimitHandler from "@/components/RateLimitHandler";
+import ServerMaintenanceBanner from "@/components/ServerMaintenanceBanner";
+import { SolPriceProvider } from "@/contexts/SolPriceContext";
+import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default function RootLayout({
         <AutoLogoutProvider>
           <SolPriceProvider>
             <RateLimitHandler />
+            <ServerMaintenanceBanner />
             <Header />
             {children}
           </SolPriceProvider>
@@ -29,4 +31,3 @@ export default function RootLayout({
     </html>
   );
 }
-

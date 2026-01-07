@@ -1,2 +1,17 @@
 @import "tailwindcss";
 
+/* 서버 점검 알림 배너 스크롤 애니메이션 */
+@keyframes scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-20%);
+  }
+}
+
+.animate-scroll {
+  animation: scroll 40s linear infinite;
+  display: flex;
+}
+
