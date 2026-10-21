@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiClient, Order } from '@/lib/api';
 
 interface MyOrdersProps {
@@ -11,57 +11,29 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cancelingId, setCancelingId] = useState<number | null>(null);
+  const [cancelingId, setCancelingId] = useState<string | null>(null);
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     if (!apiClient.isAuthenticated()) {
-      setLoading(false);
       return;
     }
 
     try {
-      setError(null);
       
       // 백엔드에서 필터링: filterStatus가 있으면 각 상태별로 조회 후 합치기
       let allOrders: Order[] = [];
       
       if (filterStatus && filterStatus.length > 0) {
-        // "filled" 필터의 경우, 백엔드에서 "filled" 상태를 조회하되,
-        // 추가로 "partial" 상태 중 완전히 체결된 주문도 포함
-        if (filterStatus.includes('filled')) {
-          // filled 상태 조회
-          const filledOrders = await apiClient.getMyOrders('filled', 1000, 0);
-          
-          // partial 상태 조회 후 완전히 체결된 주문만 필터링
-          const partialOrders = await apiClient.getMyOrders('partial', 1000, 0);
-          const fullyFilledPartialOrders = partialOrders.filter(order => {
-            const filledAmount = parseFloat(order.filled_amount);
-            const totalAmount = parseFloat(order.amount);
-            // 시장가 매수는 amount가 0일 수 있으므로, filled_amount > 0이면 체결된 것으로 간주
-            if (order.order_side === 'market' && order.order_type === 'buy' && totalAmount === 0) {
-              return filledAmount > 0; // 체결된 수량이 있으면 완전 체결로 간주
-            }
-            return filledAmount >= totalAmount && totalAmount > 0; // filled_amount >= amount면 완전 체결
-          });
-          
-          allOrders = [...filledOrders, ...fullyFilledPartialOrders];
-        } else {
-          // 다른 필터의 경우 각 상태별로 조회
-          const promises = filterStatus.map(status => 
-            apiClient.getMyOrders(status, 1000, 0)
-          );
-          const results = await Promise.all(promises);
-          allOrders = results.flat();
-        }
+        allOrders=(await Promise.all(filterStatus.map(status=>apiClient.getMyOrders(status,1000,0)))).flat();
       } else {
-        // 필터가 없으면 전체 조회
-        allOrders = await apiClient.getMyOrders(undefined, 1000, 0);
+        allOrders=await apiClient.getMyOrders(undefined,1000,0);
       }
-      
+
       // 최신순 정렬
       const sortedOrders = allOrders.sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
+      setError(null);
       setOrders(sortedOrders);
       setLoading(false); // 성공 시 로딩 해제
     } catch (err) {
@@ -96,16 +68,16 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
         setLoading(false);
       }
     }
-  };
+  }, [filterStatus]);
 
   useEffect(() => {
     fetchOrders();
     // 3초마다 주문 상태 갱신
     const interval = setInterval(fetchOrders, 3000);
     return () => clearInterval(interval);
-  }, [filterStatus]); // filterStatus 변경 시 재조회
+  }, [fetchOrders]);
 
-  const handleCancel = async (orderId: number) => {
+  const handleCancel = async (orderId: string) => {
     if (!confirm('정말 이 주문을 취소하시겠습니까?')) {
       return;
     }
@@ -202,9 +174,9 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
           <div className="space-y-2">
             {orders.map((order) => {
               const filledPercent = order.amount !== '0' 
-                ? (parseFloat(order.filled_amount) / parseFloat(order.amount)) * 100 
+                ? (parseFloat(order.filledAmount) / parseFloat(order.amount)) * 100 
                 : 0;
-              const isBuy = order.order_type === 'buy';
+              const isBuy = order.orderType === 'buy';
               
               return (
                 <div
@@ -219,29 +191,29 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                         {isBuy ? '매수' : '매도'}
                       </span>
                       <span className={`text-xs font-semibold px-2 py-1 rounded bg-gray-700 text-gray-300`}>
-                        {order.order_side === 'limit' ? '지정가' : '시장가'}
+                        {order.orderSide === 'limit' ? '지정가' : '시장가'}
                       </span>
                       <span className={`text-xs font-medium ${getStatusColor(order.status)}`}>
                         {getStatusText(order.status)}
                       </span>
                     </div>
-                    <span className="text-xs text-gray-400">{formatDate(order.created_at)}</span>
+                    <span className="text-xs text-gray-400">{formatDate(order.createdAt)}</span>
                   </div>
 
                   {/* 체결 탭에서는 수량/체결률 제거, 미체결 탭에서는 표시 */}
                   {filterStatus?.includes('filled') ? (
-                    // 체결 탭: filled_quote_amount 사용 (시장가/지정가 모두)
+                    // 체결 탭: filledQuoteAmount 사용 (시장가/지정가 모두)
                     (() => {
-                      const isMarket = order.order_side === 'market';
-                      const isMarketBuy = isMarket && order.order_type === 'buy';
-                      const isMarketSell = isMarket && order.order_type === 'sell';
+                      const isMarket = order.orderSide === 'market';
+                      const isMarketBuy = isMarket && order.orderType === 'buy';
+                      const isMarketSell = isMarket && order.orderType === 'sell';
                       
-                      // filled_quote_amount 사용 (백엔드에서 계산된 값)
-                      const filledQuoteAmount = parseFloat(order.filled_quote_amount) || 0;
+                      // filledQuoteAmount 사용 (백엔드에서 계산된 값)
+                      const filledQuoteAmount = parseFloat(order.filledQuoteAmount) || 0;
                       
-                      // 지정가 주문: 가격 × 체결 수량 (참고용, filled_quote_amount가 0일 때만)
-                      const totalFromPrice = order.price && parseFloat(order.filled_amount) > 0
-                        ? parseFloat(order.price) * parseFloat(order.filled_amount)
+                      // 지정가 주문: 가격 × 체결 수량 (참고용, filledQuoteAmount가 0일 때만)
+                      const totalFromPrice = order.price && parseFloat(order.filledAmount) > 0
+                        ? parseFloat(order.price) * parseFloat(order.filledAmount)
                         : 0;
                       
                       return (
@@ -251,8 +223,8 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                               <div>
                                 <span className="text-gray-400">체결 수량:</span>
                                 <span className="text-white ml-2">
-                                  {parseFloat(order.filled_amount) > 0
-                                    ? `${parseFloat(order.filled_amount).toFixed(4)} SOL`
+                                  {parseFloat(order.filledAmount) > 0
+                                    ? `${parseFloat(order.filledAmount).toFixed(4)} BTC`
                                     : '--'}
                                 </span>
                               </div>
@@ -261,7 +233,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                                 <span className="text-white ml-2">
                                   {filledQuoteAmount > 0
                                     ? `$${filledQuoteAmount.toFixed(2)}`
-                                    : parseFloat(order.filled_amount) > 0
+                                    : parseFloat(order.filledAmount) > 0
                                     ? '계산 중...'
                                     : '--'}
                                 </span>
@@ -272,8 +244,8 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                               <div>
                                 <span className="text-gray-400">체결 수량:</span>
                                 <span className="text-white ml-2">
-                                  {parseFloat(order.filled_amount) > 0
-                                    ? `${parseFloat(order.filled_amount).toFixed(4)} SOL`
+                                  {parseFloat(order.filledAmount) > 0
+                                    ? `${parseFloat(order.filledAmount).toFixed(4)} BTC`
                                     : '--'}
                                 </span>
                               </div>
@@ -282,7 +254,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                                 <span className="text-white ml-2">
                                   {filledQuoteAmount > 0
                                     ? `$${filledQuoteAmount.toFixed(2)}`
-                                    : parseFloat(order.filled_amount) > 0
+                                    : parseFloat(order.filledAmount) > 0
                                     ? '계산 중...'
                                     : '--'}
                                 </span>
@@ -324,21 +296,21 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                         <div>
                           <span className="text-gray-400">수량:</span>
                           <span className="text-white ml-2">
-                            {order.order_side === 'market' && order.order_type === 'buy' && parseFloat(order.amount) === 0
+                            {order.orderSide === 'market' && order.orderType === 'buy' && parseFloat(order.amount) === 0
                               ? '매칭 대기 중'
-                              : `${parseFloat(order.amount).toFixed(4)} SOL`}
+                              : `${parseFloat(order.amount).toFixed(4)} BTC`}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-400">체결:</span>
                           <span className="text-white ml-2">
-                            {parseFloat(order.filled_amount).toFixed(4)} SOL
+                            {parseFloat(order.filledAmount).toFixed(4)} BTC
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-400">체결률:</span>
                           <span className="text-white ml-2">
-                            {order.order_side === 'market' && order.order_type === 'buy' && parseFloat(order.amount) === 0
+                            {order.orderSide === 'market' && order.orderType === 'buy' && parseFloat(order.amount) === 0
                               ? '계산 중'
                               : `${filledPercent.toFixed(1)}%`}
                           </span>

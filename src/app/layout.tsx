@@ -1,14 +1,12 @@
 import AutoLogoutProvider from "@/components/AutoLogoutProvider";
 import Header from "@/components/Header";
-import RateLimitHandler from "@/components/RateLimitHandler";
-import ServerMaintenanceBanner from "@/components/ServerMaintenanceBanner";
-import { SolPriceProvider } from "@/contexts/SolPriceContext";
+import { MarketProvider } from "@/contexts/MarketContext";
 import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Solana Exchange",
-  description: "Solana blockchain trading platform",
+  title: "BTC Exchange",
+  description: "BTC/USDT 거래 플랫폼",
 };
 
 export default function RootLayout({
@@ -20,12 +18,10 @@ export default function RootLayout({
     <html lang="ko">
       <body className="bg-gray-900 text-white min-h-screen">
         <AutoLogoutProvider>
-          <SolPriceProvider>
-            <RateLimitHandler />
-            <ServerMaintenanceBanner />
+          <MarketProvider>
             <Header />
             {children}
-          </SolPriceProvider>
+          </MarketProvider>
         </AutoLogoutProvider>
       </body>
     </html>

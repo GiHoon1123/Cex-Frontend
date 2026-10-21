@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient } from '@/lib/api';
+import { apiClient, TokenStorage } from '@/lib/api';
 import OrderManagement from '@/components/OrderManagement';
 
 export default function TradesPage() {
   const router = useRouter();
+  const authenticated=useSyncExternalStore(TokenStorage.subscribe,TokenStorage.hasTokens,()=>false);
 
   useEffect(() => {
     if (!apiClient.isAuthenticated()) {
@@ -14,7 +15,7 @@ export default function TradesPage() {
     }
   }, [router]);
 
-  if (!apiClient.isAuthenticated()) {
+  if (!authenticated) {
     return null;
   }
 

@@ -1,19 +1,24 @@
 {
-  "name": "solana-exchange",
+  "name": "cex-frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "start:dev": "next dev -p 3003",
     "build": "next build",
     "start:prod": "next start -p 3003",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "decimal.js": "10.6.0",
+    "lightweight-charts": "5.2.1",
     "next": "16.0.8",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

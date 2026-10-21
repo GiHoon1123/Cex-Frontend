@@ -9,7 +9,7 @@ import { useCallback, useEffect, useRef } from "react";
  */
 export function useAutoLogout(inactiveMinutes: number = 10) {
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastActivityRef = useRef<number>(Date.now());
+  const lastActivityRef = useRef<number>(0);
 
   // 타이머 리셋 함수
   const resetTimer = useCallback(() => {

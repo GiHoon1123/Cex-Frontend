@@ -1,66 +1,29 @@
-# Solana Exchange
+# CEX Frontend
 
-Solana blockchain trading platform frontend built with Next.js.
+BTC/USDT 거래 화면이다. 계정·주문 HTTP와 자체 호가·체결 WebSocket의 진입점은 Java 플랫폼이다. 바이낸스나 Rust 엔진을 브라우저에서 직접 호출하지 않는다.
 
-## 설계와 개발 문서
+## 실행
 
-- [문서 목차](docs/README.md)
-- [고객 거래소·어드민 프론트 설계 기준](docs/plans/frontend-architecture.md)
-
-고객 거래소와 어드민을 모노레포의 두 앱으로 구성할 계획이다. 현재 코드는 기존 단일 고객 앱이며 전환·배포 완료를 의미하지 않는다.
-
-## Tech Stack
-
-- **Framework**: Next.js 16.0.8
-- **React**: 19.2.0
-- **TypeScript**: ^5
-- **Styling**: Tailwind CSS v4
-- **Linting**: ESLint ^9
-
-## Getting Started
-
-### Install Dependencies
-
-```bash
-npm install
-```
-
-### Run Development Server
-
-```bash
+```sh
+npm ci
 npm run start:dev
 ```
 
-Open [http://localhost:3003](http://localhost:3003) in your browser.
+프론트는 `http://localhost:3003`, 플랫폼은 `http://localhost:8080`을 사용한다. 다른 플랫폼 주소는 `NEXT_PUBLIC_PLATFORM_URL`로 지정한다. 배포에서 이 값을 비우면 같은 출처의 `/api`·`/ws`를 사용하므로 리버스 프록시에서 플랫폼으로 연결해야 한다.
 
-### Build for Production
-
-```bash
+```sh
+npm test
+npm run test:e2e
+npm run lint
 npm run build
-npm run start:prod
 ```
 
-## Project Structure
+브라우저 검증은 기존 서비스를 사용하는 대신 별도 Next 포트와 모의 플랫폼을 사용하며 Chrome이 필요하다. 고객·어드민 모노레포 전환은 후속 계획이다. 현재 구현은 고객 앱 하나다.
 
-```
-solana-exchange/
-├── src/
-│   └── app/
-│       ├── layout.tsx      # Root layout
-│       ├── page.tsx        # Home page
-│       └── globals.css     # Global styles
-├── package.json
-├── tsconfig.json
-├── next.config.ts
-├── tailwind.config.ts
-└── postcss.config.mjs
-```
+## 문서
 
-## API Server
+- [문서 목차](docs/README.md)
+- [BTC·플랫폼 연결과 테스트](docs/decisions/001-platform-market-and-btc.md)
+- [고객·어드민 프론트 계획](docs/plans/frontend-architecture.md)
 
-현재 클라이언트에는 엔진 `http://localhost:3002`로 연결하는 경로가 있다. 고객·운영자 업무 API는 플랫폼 `http://localhost:8080`으로 정리할 계획이며, 이번 문서 작업에서는 연결 설정을 변경하지 않았다.
-
-## License
-
-MIT
-
+거래 화면 전환은 BTC 온체인 입출금 구현을 의미하지 않는다. 차트·호가가 비어 있으면 자체 거래 데이터가 아직 없는 상태다.

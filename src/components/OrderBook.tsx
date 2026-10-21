@@ -1,206 +1,22 @@
 'use client';
+import {useMarket} from '@/contexts/MarketContext';
 
-import { useEffect, useState, useRef } from 'react';
-import { useSolPrice } from '@/contexts/SolPriceContext';
-
-interface OrderBookEntry {
-  price: number;
-  amount: number;
-  total: number;
-}
-
+/** 자체 체결 코어에서 확정한 가격별 잔량만 표시한다. 빈 호가를 외부 가격으로 채우지 않는다. */
 export default function OrderBook() {
-  const [buyOrders, setBuyOrders] = useState<OrderBookEntry[]>([]);
-  const [sellOrders, setSellOrders] = useState<OrderBookEntry[]>([]);
-  const { solPrice: currentPrice, priceChange } = useSolPrice(); // Context에서 가격 가져오기
-  const [loading, setLoading] = useState(true);
-  const wsDepthRef = useRef<WebSocket | null>(null);
-  const depthSnapshotRef = useRef<{ bids: string[][]; asks: string[][] } | null>(null);
-
-  useEffect(() => {
-    // 초기 스냅샷 가져오기
-    const fetchSnapshot = async () => {
-      try {
-        const response = await fetch(
-          'https://api.binance.com/api/v3/depth?symbol=SOLUSDT&limit=20'
-        );
-        const data = await response.json();
-        depthSnapshotRef.current = data;
-
-        // 초기 데이터 설정
-        const asks = data.asks
-          .slice(0, 10)
-          .map(([price, quantity]: string[]) => {
-            const p = parseFloat(price) || 0;
-            const q = parseFloat(quantity) || 0;
-            return {
-              price: p,
-              amount: q,
-              total: p * q,
-            };
-          })
-          .filter((o: OrderBookEntry) => o.price > 0 && o.amount > 0)
-          .sort((a: OrderBookEntry, b: OrderBookEntry) => a.price - b.price);
-
-        const bids = data.bids
-          .slice(0, 10)
-          .map(([price, quantity]: string[]) => {
-            const p = parseFloat(price) || 0;
-            const q = parseFloat(quantity) || 0;
-            return {
-              price: p,
-              amount: q,
-              total: p * q,
-            };
-          })
-          .filter((o: OrderBookEntry) => o.price > 0 && o.amount > 0)
-          .sort((a: OrderBookEntry, b: OrderBookEntry) => b.price - a.price);
-
-        setSellOrders(asks);
-        setBuyOrders(bids);
-        setLoading(false);
-      } catch (error) {
-        console.error('스냅샷 가져오기 실패:', error);
-        setLoading(false);
-      }
-    };
-
-    fetchSnapshot();
-
-    // 호가창 WebSocket (depth stream)
-    wsDepthRef.current = new WebSocket('wss://stream.binance.com:9443/ws/solusdt@depth20@100ms');
-
-    wsDepthRef.current.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.bids && data.asks) {
-          const asks = data.asks
-            .map(([price, quantity]: string[]) => {
-              const p = parseFloat(price) || 0;
-              const q = parseFloat(quantity) || 0;
-              return { price: p, amount: q, total: p * q };
-            })
-            .filter((o: OrderBookEntry) => o.price > 0 && o.amount > 0)
-            .sort((a: OrderBookEntry, b: OrderBookEntry) => a.price - b.price)
-            .slice(0, 10);
-
-          const bids = data.bids
-            .map(([price, quantity]: string[]) => {
-              const p = parseFloat(price) || 0;
-              const q = parseFloat(quantity) || 0;
-              return { price: p, amount: q, total: p * q };
-            })
-            .filter((o: OrderBookEntry) => o.price > 0 && o.amount > 0)
-            .sort((a: OrderBookEntry, b: OrderBookEntry) => b.price - a.price)
-            .slice(0, 10);
-
-          setSellOrders(asks);
-          setBuyOrders(bids);
-        }
-      } catch (error) {
-        console.error('WebSocket 데이터 파싱 실패:', error);
-      }
-    };
-
-    wsDepthRef.current.onerror = (error) => {
-      // WebSocket 에러는 조용히 처리 (재연결 시도하지 않음)
-      // 네트워크 문제나 일시적 오류는 자동으로 재연결됨
-      console.warn('호가창 WebSocket 연결 오류 (자동 재연결 시도)');
-    };
-
-    wsDepthRef.current.onclose = () => {
-      // 연결이 끊어지면 자동으로 재연결 시도
-      console.warn('호가창 WebSocket 연결 종료');
-    };
-
-    return () => {
-      if (wsDepthRef.current) {
-        wsDepthRef.current.close();
-      }
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-5 h-full flex flex-col">
-        <h3 className="text-base font-semibold text-white mb-5">호가창</h3>
-        <div className="text-gray-400 text-center py-4">로딩 중...</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-5 h-full flex flex-col overflow-hidden">
-      <h3 className="text-base font-semibold text-white mb-4 flex-shrink-0">호가창</h3>
-      
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* 매도 호가 */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="text-xs text-blue-400 font-semibold mb-2 flex-shrink-0">매도</div>
-          <div className="flex-1 overflow-y-auto space-y-0.5">
-            {sellOrders.map((order, index) => (
-              <div
-                key={`sell-${index}`}
-                className="flex justify-between items-center text-sm hover:bg-gray-700 px-2 py-1 rounded"
-              >
-                <span className="text-blue-400">
-                  {order.price > 0 ? order.price.toFixed(2) : '--'}
-                </span>
-                <span className="text-gray-300">
-                  {order.amount > 0 ? order.amount.toFixed(4) : '--'}
-                </span>
-                <span className="text-gray-400">
-                  {order.total > 0 ? order.total.toFixed(2) : '--'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* 현재가 */}
-        <div className="text-center py-3 border-y border-gray-700 my-3 flex-shrink-0">
-          <div className="text-xl font-bold text-blue-400">
-            {currentPrice ? currentPrice.toFixed(2) : '--'}
-          </div>
-          <div
-            className={`text-xs mt-1 ${
-              priceChange >= 0 ? 'text-red-400' : 'text-blue-400'
-            }`}
-          >
-            {currentPrice && (
-              <>
-                {priceChange >= 0 ? '+' : ''}
-                {priceChange.toFixed(2)}%
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* 매수 호가 */}
-        <div className="flex-1 min-h-0 flex flex-col">
-          <div className="text-xs text-red-400 font-semibold mb-2 flex-shrink-0">매수</div>
-          <div className="flex-1 overflow-y-auto space-y-0.5">
-            {buyOrders.map((order, index) => (
-              <div
-                key={`buy-${index}`}
-                className="flex justify-between items-center text-sm hover:bg-gray-700 px-2 py-1 rounded"
-              >
-                <span className="text-red-400">
-                  {order.price > 0 ? order.price.toFixed(2) : '--'}
-                </span>
-                <span className="text-gray-300">
-                  {order.amount > 0 ? order.amount.toFixed(4) : '--'}
-                </span>
-                <span className="text-gray-400">
-                  {order.total > 0 ? order.total.toFixed(2) : '--'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const {view,connected}=useMarket();
+  const last=view?.trades[0];
+  const rows=(levels:[string,string][],side:'buy'|'sell')=>levels.map(([price,quantity])=>
+    <div key={price} className="grid grid-cols-2 gap-3 py-1 font-mono text-xs"><span className={side==='buy'?'text-emerald-400':'text-red-400'}>{Number(price).toLocaleString('en-US',{minimumFractionDigits:2})}</span><span className="text-right">{quantity}</span></div>);
+  return <section className="bg-gray-800 rounded-lg border border-gray-700 p-4 h-full overflow-y-auto" aria-label="자체 호가창">
+    <h2 className="font-semibold">호가창 · BTC/USDT</h2>
+    <p className="text-xs text-gray-400 my-2">{connected?'플랫폼 연결됨':'연결 대기 · 마지막 수신 상태'}</p>
+    <div className="grid grid-cols-2 text-xs text-gray-400 border-b border-gray-700 py-2"><span>가격 (USDT)</span><span className="text-right">수량 (BTC)</span></div>
+    {!view?<p className="py-8 text-sm text-gray-400">호가 데이터 대기 중</p>:<>
+      {rows([...view.book.asks].reverse(),'sell')}
+      {!view.book.asks.length&&<p className="text-xs text-gray-400 py-3">매도 호가 없음</p>}
+      <div className="border-y border-gray-700 py-3 font-mono">{last?Number(last.price).toLocaleString('en-US',{minimumFractionDigits:2}):'체결 없음'}</div>
+      {rows(view.book.bids,'buy')}
+      {!view.book.bids.length&&<p className="text-xs text-gray-400 py-3">매수 호가 없음</p>}
+    </>}
+  </section>;
 }
-

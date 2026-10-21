@@ -36,3 +36,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+
+# 격리 브라우저 검증 산출물
+.next-market-*/
+playwright-report/
+test-results/

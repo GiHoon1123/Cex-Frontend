@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import SolanaChart from '@/components/SolanaChart';
+import MarketChart from '@/components/MarketChart';
 import OrderPanel from '@/components/OrderPanel';
 import OrderBook from '@/components/OrderBook';
 import TradeHistory from '@/components/TradeHistory';
@@ -10,7 +10,7 @@ import AssetList from '@/components/AssetList';
 type TabType = 'chart' | 'orderbook' | 'order';
 
 export default function Home() {
-  const [selectedMarket] = useState('SOL/USDT');
+  const [selectedMarket] = useState('BTC/USDT');
   const [activeTab, setActiveTab] = useState<TabType>('chart');
   const [showAssetList, setShowAssetList] = useState(false);
 
@@ -30,7 +30,7 @@ export default function Home() {
                 <h2 className="text-lg font-semibold text-white">{selectedMarket}</h2>
               </div>
               <div className="h-full">
-                <SolanaChart />
+                <MarketChart />
               </div>
             </div>
 
@@ -124,7 +124,7 @@ export default function Home() {
           {/* 차트 탭: 차트만 보임 */}
           {activeTab === 'chart' && (
             <div className="h-full p-2">
-              <SolanaChart />
+              <MarketChart />
             </div>
           )}
 
