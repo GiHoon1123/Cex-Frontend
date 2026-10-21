@@ -15,6 +15,7 @@ export function MarketProvider({children}:{children:ReactNode}) {
       if(stopped)return;
       socket=new WebSocket(marketSocketUrl(window.location.origin));
       socket.onmessage=event=> {
+        if(stopped)return;
         lastMessage=Date.now();
         try {
           const next=JSON.parse(event.data);
@@ -23,7 +24,7 @@ export function MarketProvider({children}:{children:ReactNode}) {
         } catch {setConnected(false);socket.close();}
       };
       socket.onerror=()=>socket.close();
-      socket.onclose=()=>{setConnected(false);if(!stopped)timer=setTimeout(connect,1000);};
+      socket.onclose=()=>{if(stopped)return;setConnected(false);timer=setTimeout(connect,1000);};
     };
     connect();
     // 끊김 통지를 받지 못한 연결도 심박이 사라지면 닫아 전체 상태를 다시 받는다.

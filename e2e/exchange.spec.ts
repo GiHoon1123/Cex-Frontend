@@ -26,12 +26,12 @@ test('자체 호가·체결을 표시하고 역순과 재연결을 안전하게 
   const book=page.getByRole('region',{name:'자체 호가창'});
   await expect(book.getByText('매도 호가 없음')).toBeVisible();
   await expect(page.getByRole('region',{name:'최근 자체 체결'}).getByText('아직 체결이 없습니다.')).toBeVisible();
-  current=snapshot('2','0.002');sockets[0].send(JSON.stringify(current));
+  current=snapshot('2','0.002');sockets.at(-1)!.send(JSON.stringify(current));
   await expect(book.getByText('0.002',{exact:true})).toBeVisible();
-  sockets[0].send(JSON.stringify(snapshot('1','999')));
+  sockets.at(-1)!.send(JSON.stringify(snapshot('1','999')));
   await expect(book.getByText('0.002',{exact:true})).toBeVisible();
-  current=snapshot('3');await sockets[0].close({code:1000,reason:'재연결 검증'});
-  await expect.poll(()=>sockets.length).toBe(2);
+  const before=sockets.length;current=snapshot('3');await sockets.at(-1)!.close({code:1000,reason:'재연결 검증'});
+  await expect.poll(()=>sockets.length).toBeGreaterThan(before);
   await expect(book.getByText('매도 호가 없음')).toBeVisible();
   expect(requests.some(url=>/binance|3002|solusdt/i.test(url))).toBe(false);
 });
