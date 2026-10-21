@@ -64,3 +64,22 @@ test('자체 체결 봉으로 차트를 렌더링하고 외부 위젯을 로드�
   await expect(page.getByText('체결이 발생하면 차트가 표시됩니다.')).toHaveCount(0);
   expect(errors).toEqual([]);expect(requests.some(url=>url.includes('tv.js')||url.includes('binance'))).toBe(false);
 });
+
+test('개인 주문 조회와 취소에서도 큰 주문 ID를 문자열로 전달한다',async({page})=> {
+  await page.addInitScript(()=>{localStorage.setItem('access_token','test-access');localStorage.setItem('refresh_token','test-refresh');});
+  await publicRoutes(page);let active=true;const cancelled:string[]=[];
+  const order={id:'9007199254740993',userId:1,orderType:'buy',orderSide:'limit',baseMint:'BTC',quoteMint:'USDT',price:'60000',amount:'0.001',filledAmount:'0',filledQuoteAmount:'0',status:'pending',createdAt:at,updatedAt:at};
+  await page.route('http://platform.invalid/api/cex/orders/my**',route=> {
+    const status=new URL(route.request().url()).searchParams.get('status');
+    return route.fulfill({json:{content:active&&status==='pending'?[order]:[]},headers:{'access-control-allow-origin':'*'}});
+  });
+  await page.route('http://platform.invalid/api/cex/orders/9007199254740993',route=> {
+    cancelled.push(route.request().url());active=false;
+    return route.fulfill({status:202,json:{order},headers:{'access-control-allow-origin':'*'}});
+  });
+  await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot())));
+  page.on('dialog',dialog=>dialog.accept());await page.goto('/trades');
+  await page.getByRole('button',{name:'주문 취소',exact:true}).click();
+  await expect(page.getByRole('button',{name:'주문 취소',exact:true})).toHaveCount(0);
+  expect(cancelled).toEqual(['http://platform.invalid/api/cex/orders/9007199254740993']);
+});

@@ -29,7 +29,7 @@ export function useAutoLogout(inactiveMinutes: number = 10) {
         apiClient.logout();
 
         // 페이지 새로고침하여 상태 초기화
-        window.location.href = "/";
+        window.location.replace(new URL("/", window.location.origin).href);
       }
     }, inactiveMs);
   }, [inactiveMinutes]);
@@ -72,7 +72,7 @@ export function useAutoLogout(inactiveMinutes: number = 10) {
       if (timeSinceLastActivity >= inactiveMs && apiClient.isAuthenticated()) {
         console.log("자동 로그아웃: 10분간 활동이 없었습니다.");
         apiClient.logout();
-        window.location.href = "/";
+        window.location.replace(new URL("/", window.location.origin).href);
       }
     }, 60000); // 1분마다 체크
 

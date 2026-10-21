@@ -13,68 +13,30 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
   const [error, setError] = useState<string | null>(null);
   const [cancelingId, setCancelingId] = useState<string | null>(null);
 
+  // 조회 함수는 상태를 바꾸지 않고 데이터만 돌려준다. 효과의 구독 콜백과
+  // 취소 버튼이 같은 조회를 사용하되, 정리된 구독은 화면을 갱신하지 않는다.
   const fetchOrders = useCallback(async () => {
-    if (!apiClient.isAuthenticated()) {
-      return;
-    }
-
-    try {
-      
-      // 백엔드에서 필터링: filterStatus가 있으면 각 상태별로 조회 후 합치기
-      let allOrders: Order[] = [];
-      
-      if (filterStatus && filterStatus.length > 0) {
-        allOrders=(await Promise.all(filterStatus.map(status=>apiClient.getMyOrders(status,1000,0)))).flat();
-      } else {
-        allOrders=await apiClient.getMyOrders(undefined,1000,0);
-      }
-
-      // 최신순 정렬
-      const sortedOrders = allOrders.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      setError(null);
-      setOrders(sortedOrders);
-      setLoading(false); // 성공 시 로딩 해제
-    } catch (err) {
-      console.error('주문 목록 가져오기 실패:', err);
-      
-      // 401 에러 처리
-      if (err instanceof Error) {
-        if (err.message.includes('401') || err.message.includes('Unauthorized')) {
-          setError('인증이 필요합니다. 다시 로그인해주세요.');
-          setLoading(false);
-          return;
-        }
-      }
-      
-      // 네트워크 에러나 타임아웃인 경우에만 로딩 유지
-      // 그 외의 경우(예: 500 에러 등)에는 로딩 해제하고 에러 표시
-      if (err instanceof Error) {
-        const isNetworkError = 
-          err.message.includes('fetch') || 
-          err.message.includes('network') ||
-          err.message.includes('타임아웃') ||
-          err.message.includes('timeout');
-        
-        if (!isNetworkError) {
-          // 네트워크 에러가 아닌 경우 로딩 해제
-          setLoading(false);
-          setError('주문 목록을 불러오는 중 오류가 발생했습니다.');
-        }
-        // 네트워크 에러인 경우 로딩 상태 유지 (재시도 가능)
-      } else {
-        // 알 수 없는 에러인 경우 로딩 해제
-        setLoading(false);
-      }
-    }
+    if (!apiClient.isAuthenticated()) return [];
+    const allOrders = filterStatus?.length
+      ? (await Promise.all(filterStatus.map(status => apiClient.getMyOrders(status, 1000, 0)))).flat()
+      : await apiClient.getMyOrders(undefined, 1000, 0);
+    return allOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [filterStatus]);
 
   useEffect(() => {
-    fetchOrders();
-    // 3초마다 주문 상태 갱신
-    const interval = setInterval(fetchOrders, 3000);
-    return () => clearInterval(interval);
+    let stopped = false;
+    const refresh = () => {
+      void fetchOrders().then(next => {
+        if (stopped) return;
+        setOrders(next); setError(null); setLoading(false);
+      }).catch(() => {
+        if (stopped) return;
+        setError('주문 목록 조회 실패 · 마지막 조회 상태'); setLoading(false);
+      });
+    };
+    refresh();
+    const interval = setInterval(refresh, 3000);
+    return () => { stopped = true; clearInterval(interval); };
   }, [fetchOrders]);
 
   const handleCancel = async (orderId: string) => {
@@ -87,7 +49,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
       console.log('주문 취소 시도:', { orderId, order: orders.find(o => o.id === orderId) });
       await apiClient.cancelOrder(orderId);
       // 주문 목록 갱신
-      await fetchOrders();
+      setOrders(await fetchOrders());
     } catch (err) {
       console.error('주문 취소 실패:', err);
       let errorMessage = '주문 취소에 실패했습니다.';
@@ -174,7 +136,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
           <div className="space-y-2">
             {orders.map((order) => {
               const filledPercent = order.amount !== '0' 
-                ? (parseFloat(order.filledAmount) / parseFloat(order.amount)) * 100 
+                ? (parseFloat(order.filledAmount) / parseFloat(order.amount)) * 100
                 : 0;
               const isBuy = order.orderType === 'buy';
               
@@ -318,7 +280,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                       </div>
 
                       {/* 체결 진행률 바 */}
-                      {order.status !== 'cancelled' && order.status !== 'filled' && (
+                      {['pending', 'partial'].includes(order.status) && (
                         <div className="mb-2">
                           <div className="w-full bg-gray-700 rounded-full h-1.5">
                             <div

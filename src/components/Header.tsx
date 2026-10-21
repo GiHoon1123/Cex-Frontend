@@ -20,11 +20,11 @@ export default function Header() {
     try {
       await apiClient.logout();
       // 로그아웃 후 페이지 새로고침하여 모든 상태 초기화
-      window.location.href = '/';
+      window.location.replace(new URL('/', window.location.origin).href);
     } catch (error) {
       console.error('Logout error:', error);
       // 에러가 발생해도 로컬 상태는 업데이트하고 페이지 새로고침
-      window.location.href = '/';
+      window.location.replace(new URL('/', window.location.origin).href);
     }
   };
 

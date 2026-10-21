@@ -68,3 +68,11 @@ flowchart LR
 브라우저는 격리된 Next 포트 3103과 별도 빌드 경로를 사용한다. API·소켓은 예약 도메인 `platform.invalid`에서 가로채므로 기존 플랫폼으로 빠지지 않는다. 실제 Rust·Java·Kafka의 검증은 [플랫폼 전체 경로 기록](../../../Cex-Platform-Service/docs/decisions/007-platform-market-gateway.md)을 참고한다.
 
 `npm run lint`, `npx tsc --noEmit`, `NEXT_DIST_DIR=.next-market-build npm run build`도 통과했다. 성능·인증 보안 심사·모바일 전체 화면·장시간 대량 연결 검증은 수행하지 않았다. Next 의존성 보안 갱신은 별도 기록으로 관리한다.
+
+## 관련 구현 커밋
+
+- [프론트 연결·계약·브라우저 검증](https://github.com/GiHoon1123/Cex-Frontend/commit/89e72dc)
+- [엔진 시장 출력](https://github.com/GiHoon1123/Cex-Engine/commit/92561a3)
+- [플랫폼 공개 시세·봇·취소 경계](https://github.com/GiHoon1123/Cex-Platform-Service/commit/d6bbe17)
+
+후속 보안 갱신에서는 개인 주문 조회·큰 ID 취소 검증을 추가했다. 현재 누적 브라우저 검증 4개와 최신 의존성 결과는 [보안 갱신 기록](002-next-security-update.md)을 따른다.
