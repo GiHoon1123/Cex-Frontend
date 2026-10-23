@@ -1,5 +1,7 @@
 # Solana Exchange - 서비스 기획서
 
+> 2025년 Solana 기획의 역사 기록이다. 현재는 Gihoon의 BTC/USDT 내부 거래소이며 Jupiter·Solana 화면 계획을 현행 요구사항으로 사용하지 않는다. [현재 BTC·플랫폼 계약](docs/decisions/001-platform-market-and-btc.md)과 [고객·어드민 계획](docs/plans/frontend-architecture.md)을 따른다.
+
 **작성일**: 2025/11/24  
 **제작자**: Dustin
 
@@ -148,3 +150,19 @@ Solana 전용 하이브리드 거래소입니다. CEX(중앙화 거래소)와 DE
 - 현재는 학습/연구 목적의 프로젝트
 - 실제 상용 서비스가 아니므로 실제 사용자 유동성 부족
 - 스왑 기능은 DB 시뮬레이션 모드 (향후 실제 스왑 가능)
+
+## 실제 구현과 함께 읽기 · 2026-10-23
+
+이 문서의 관련 동작을 확인할 현재 코드다. 메서드·설정의 일부이며 독립 실행 예제가 아니다. 계획이나 과거 검토 전체가 구현·검증됐다는 뜻은 아니다.
+
+출처: [market.ts](src/lib/market.ts#L18) · [전체 구현 설명·트레이드오프·작성한 테스트](docs/decisions/001-platform-market-and-btc.md)
+
+```text
+  if(current && current.book.engine_id===next.book.engine_id && BigInt(next.book.sequence)<=BigInt(current.book.sequence)) return current;
+  return next;
+}
+```
+
+`BigInt`는 문자열 순번을 JavaScript Number의 정밀도 손실 없이 비교한다. 이 블록 앞에서 거래쌍·호가·체결 필드를 검증한다. 새 화면 기능을 추가한 작업이 아니라 기존 코드를 문서에 옮긴 것이다.
+
+이번 보강은 문서 변경이다. 신규 제품 테스트는 0개이며 제품 테스트는 재실행하지 않았다. 소스와 발췌의 일치를 별도로 검사했다. 과거 실행 결과와 현재 소스의 동작 범위는 연결한 구현 기록에서 구분한다.
