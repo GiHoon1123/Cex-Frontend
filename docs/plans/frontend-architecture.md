@@ -35,7 +35,7 @@
 
 다음은 목표 구조다. 현재 존재하는 디렉터리와 혼동하지 않는다.
 
-```text
+```typescript
 Cex-Frontend/
 ├── apps/
 │   ├── exchange/       # 고객 거래소 Next.js 앱
@@ -152,7 +152,7 @@ KYC는 [Didit 검토 문서](../../../docs/roadmap/didit-kyc.md)의 호스팅 �
 
 출처: [market.ts](../../src/lib/market.ts#L18) · [전체 구현 설명·트레이드오프·작성한 테스트](../decisions/001-platform-market-and-btc.md)
 
-```text
+```typescript
   if(current && current.book.engine_id===next.book.engine_id && BigInt(next.book.sequence)<=BigInt(current.book.sequence)) return current;
   return next;
 }
