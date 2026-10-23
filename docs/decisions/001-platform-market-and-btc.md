@@ -6,6 +6,18 @@
 
 로컬 API 주소는 엔진 3002였지만 사용자 인증·잔액 예약은 플랫폼의 책임이었다. 호가·최근 체결·가격은 각각 바이낸스 SOL 스트림을 구독하고, 차트는 바이낸스 심볼의 외부 위젯이었다. 실제 자체 체결과 화면 데이터의 출처가 달랐다. 지갑 생성 화면은 플랫폼이 제공하지 않는 API를 호출했다.
 
+### 현재 코드로 연결해 읽기
+
+화면에 이미 적용한 순번보다 오래된 같은 엔진의 스냅샷은 되돌리지 않는다. 아래는 2026-10-23 현재 [실제 소스](../../src/lib/market.ts#L18)의 연속 행 발췌다. 메서드 일부일 수 있으므로 독립 실행 예제로 사용하지 않고 앞뒤 검증과 함께 읽는다. 과거 사이클의 코드/측정 시점은 본문의 기록을 유지한다.
+
+```typescript
+  if(current && current.book.engine_id===next.book.engine_id && BigInt(next.book.sequence)<=BigInt(current.book.sequence)) return current;
+  return next;
+}
+```
+
+`BigInt`는 문자열 순번을 JavaScript Number의 정밀도 손실 없이 비교한다. 이 블록 앞에서 거래쌍·호가·체결 필드를 검증한다. 새 화면 기능을 추가한 작업이 아니라 기존 코드를 문서에 옮긴 것이다.
+
 ## 검증된 접근과 선택
 
 - [Coinbase 공개 시세 피드](https://help.coinbase.com/en/developer-platform/websocket-feeds/exchange)의 스냅샷·후속 갱신 역할을 참고했다. 이번 공개 스트림은 메시지마다 상위 20개 전체 스냅샷을 제공한다. 델타보다 전송량이 크지만 최초 조회·재연결·중간 프레임 누락에서 병합 경합이 없다.

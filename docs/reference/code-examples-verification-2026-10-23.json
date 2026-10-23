@@ -1,0 +1,29 @@
+{
+  "checked_date": "2026-10-23",
+  "scope": "기존 결정 문서의 실제 코드 발췌와 설명 보강",
+  "documents": 2,
+  "source_and_excerpt_match": true,
+  "source_link_positions_verified": true,
+  "normalization": "코드 내용은 그대로 유지하고 공통 들여쓰기와 행 끝 공백만 정리함",
+  "product_code_changed": false,
+  "new_product_tests": 0,
+  "product_tests_rerun": false,
+  "verification": "현재 소스 연속 행과 정규화한 발췌 전체 문자열·출처 위치 대조 및 git diff --check",
+  "baseline_commit": "bf0cba15a75284d008a3782e461035d5baaa7fa9",
+  "entries": [
+    {
+      "document": "docs/decisions/001-platform-market-and-btc.md",
+      "source": "src/lib/market.ts",
+      "first_line": 18,
+      "lines": 3,
+      "excerpt_sha256": "35eeb173ffcdaf083e158d5b26cb89c3ec80920d496592afa04ae1da8c3e0164"
+    },
+    {
+      "document": "docs/decisions/002-next-security-update.md",
+      "source": "package.json",
+      "first_line": 16,
+      "lines": 3,
+      "excerpt_sha256": "33bda2719d76b9de87bbc7f3cf16d558b7c9c92c3fa7b16e763cbda957cb6a4b"
+    }
+  ]
+}
