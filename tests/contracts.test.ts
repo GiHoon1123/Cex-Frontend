@@ -4,6 +4,7 @@ import {ApiClient,ApiError,SessionState} from '../apps/exchange/src/lib/api.ts';
 import {acceptSnapshot} from '../apps/exchange/src/lib/market.ts';
 import type {MarketView} from '../apps/exchange/src/lib/market.ts';
 import {marketSocketUrl} from '../apps/exchange/src/lib/platform.ts';
+import {credentialJson,decodeCreationOptions,decodeRequestOptions} from '../packages/ui/src/webauthn.ts';
 
 beforeEach(()=> {
   const values=new Map<string,string>();
@@ -76,4 +77,17 @@ test('선택한 이더리움 시장만 화면 상태로 받는다',()=> {
 
 test('세션 힌트 조회 함수를 구독 콜백과 분리해도 동작한다',()=> {
   SessionState.set(true);const snapshot=SessionState.hasSession;assert.equal(snapshot(),true);
+});
+
+test('출금 보안키 옵션과 응답을 표준 브라우저 계약으로 변환한다',()=>{
+  const options=decodeRequestOptions({challenge:'AQID',allowCredentials:[{type:'public-key',id:'BAUG'}]});
+  assert.deepEqual([...new Uint8Array(options.challenge)],[1,2,3]);
+  assert.deepEqual([...new Uint8Array(options.allowCredentials![0].id)],[4,5,6]);
+  assert.deepEqual(credentialJson({toJSON:()=>({id:'key'})} as unknown as Credential),{id:'key'});
+  assert.throws(()=>credentialJson({} as Credential));
+});
+test('보안키 등록 옵션의 사용자와 제외 키 식별자를 바이트로 변환한다',()=>{
+  const options=decodeCreationOptions({challenge:'AQID',rp:{name:'CEX'},user:{id:'BAUG',name:'user',displayName:'user'},pubKeyCredParams:[],excludeCredentials:[{type:'public-key',id:'BwgJ'}]});
+  assert.deepEqual([...new Uint8Array(options.user.id)],[4,5,6]);
+  assert.deepEqual([...new Uint8Array(options.excludeCredentials![0].id)],[7,8,9]);
 });

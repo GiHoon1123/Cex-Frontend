@@ -14,6 +14,7 @@
 - [Next 의존성 보안 갱신](decisions/002-next-security-update.md): 수정 버전·감사 결과, Strict Mode 소켓 정리와 재검증, 남은 개발 도구 보고.
 - [모노레포·서버 세션 중계·운영 화면](decisions/003-monorepo-session-and-admin.md): 두 앱의 실행 경계, 브라우저 토큰 제거, CSRF·세션 분리와 작성한 테스트.
 - [ETH/USDT 거래 화면](decisions/004-ethereum-market.md): 시장별 소켓·차트·주문 원본과 브라우저 검증.
+- [고객 자산 업무와 ETH 지급 심사 화면](decisions/005-custody-and-payout-ui.md): KYC·보안키·BTC/ETH 입출금, 운영자 추가 인증과 ETH 지급 승인 계약.
 
 ## 2026-10-23 실제 코드 발췌 보강
 

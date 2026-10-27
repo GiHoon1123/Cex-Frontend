@@ -3,8 +3,11 @@ import {createServer} from 'node:http';
 const json=(response,status,body)=>{response.writeHead(status,{'Content-Type':'application/json'});response.end(JSON.stringify(body));};
 const server=createServer((request,response)=>{
   const authorized=request.headers.authorization==='Bearer admin-access';
+  const pending=request.headers.authorization==='Bearer pending-access';
   if(request.url==='/api/health/live')return json(response,200,{status:'UP'});
-  if(request.url==='/api/auth/signin'&&request.method==='POST')return json(response,200,{accessToken:'admin-access',refreshToken:'admin-refresh',user:{id:7,email:'operator@example.com',username:'operator'},message:'로그인 성공'});
+  if(request.url==='/api/auth/signin'&&request.method==='POST')return json(response,200,{accessToken:'pending-access',refreshToken:'pending-refresh',user:{id:7,email:'operator@example.com',username:'operator'},message:'추가 인증 필요'});
+  if(request.url==='/api/auth/operator-mfa/authenticate/options'&&request.method==='POST'&&pending)return json(response,200,{challengeId:'123e4567-e89b-12d3-a456-426614174000',publicKey:{challenge:'AQID',timeout:60000,rpId:'127.0.0.1',allowCredentials:[],userVerification:'required'}});
+  if(request.url==='/api/auth/operator-mfa/authenticate'&&request.method==='POST'&&pending)return json(response,200,{accessToken:'admin-access',refreshToken:'admin-refresh',message:'추가 인증 성공'});
   if(request.url==='/api/auth/logout'&&request.method==='POST')return json(response,200,{message:'로그아웃 성공'});
   if(!authorized)return json(response,401,{message:'인증이 필요합니다'});
   if(request.url==='/api/auth/me')return json(response,200,{id:7,email:'operator@example.com',username:'operator'});

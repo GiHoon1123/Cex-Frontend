@@ -1,6 +1,10 @@
 import {expect,test} from '@playwright/test';
 
 test('운영자 토큰을 브라우저에 노출하지 않고 고객 세션과 분리한다',async({page,request})=>{
+  await page.addInitScript(()=>{
+    const credential={toJSON:()=>({id:'credential',rawId:'AQID',type:'public-key',response:{authenticatorData:'AQID',clientDataJSON:'AQID',signature:'AQID',userHandle:null}})};
+    Object.defineProperty(navigator,'credentials',{configurable:true,value:{get:async()=>credential}});
+  });
   await page.goto('http://127.0.0.1:3104');
   await expect(page.getByText('승인된 운영자 계정과 추가 인증 장치가 필요합니다.')).toBeVisible();
   await page.getByPlaceholder('이메일').fill('operator@example.com');

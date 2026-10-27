@@ -2,11 +2,13 @@
 
 import {FormEvent,useEffect,useState} from 'react';
 import {Brand,Section,StateBadge} from '@cex/ui';
-import {adminApi,OperationsStatus,User} from '@/lib/api';
+import {credentialJson,decodeRequestOptions} from '@cex/ui/webauthn';
+import {adminApi,EthereumPayoutReview,OperationsStatus,User} from '@/lib/api';
 
 export default function AdminPage(){
   const [user,setUser]=useState<User|null>(null),[status,setStatus]=useState<OperationsStatus|null>(null);
   const [approvals,setApprovals]=useState<Record<string,unknown>[]>([]),[signals,setSignals]=useState<Record<string,unknown>[]>([]),[audit,setAudit]=useState<Record<string,unknown>[]>([]);
+  const [ethereumReview,setEthereumReview]=useState<EthereumPayoutReview|null>(null);
   const [error,setError]=useState(''),[loading,setLoading]=useState(true);
   async function load(){setLoading(true);setError('');try{const current=await adminApi.me();setUser(current);const [health,requests,market,auditRows]=await Promise.all([adminApi.status(),adminApi.approvals(),adminApi.signals(),adminApi.audit()]);setStatus(health);setApprovals(requests);setSignals(market);setAudit(auditRows);}catch(problem){setUser(null);setError(problem instanceof Error?problem.message:'조회에 실패했습니다');}finally{setLoading(false);}}
   useEffect(()=>{
@@ -17,7 +19,10 @@ export default function AdminPage(){
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
-  async function login(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{await adminApi.signin(String(data.get('email')),String(data.get('password')));await load();}catch(problem){setError(problem instanceof Error?problem.message:'로그인에 실패했습니다');}}
+  async function login(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{await adminApi.signin(String(data.get('email')),String(data.get('password')));const options=await adminApi.operatorMfaOptions();const credential=await navigator.credentials.get({publicKey:decodeRequestOptions(options.publicKey)});if(!credential)throw new Error('운영자 보안키 확인이 취소됐습니다');await adminApi.operatorMfaAuthenticate(options.challengeId,credentialJson(credential));await load();}catch(problem){setError(problem instanceof Error?problem.message:'로그인에 실패했습니다');}}
+  async function proposeEthereum(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{const review=await adminApi.proposeEthereumPayout(String(data.get('withdrawalId')),Number(data.get('checkerId')),String(data.get('reason')));setEthereumReview(review);}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 검토를 만들지 못했습니다');}}
+  async function inspectEthereum(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{setEthereumReview(await adminApi.inspectEthereumPayout(String(data.get('reviewId'))));}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 검토를 읽지 못했습니다');}}
+  async function decideEthereum(approve:boolean){if(!ethereumReview)return;setError('');try{const options=await adminApi.ethereumPayoutOptions(ethereumReview.payload.id,ethereumReview.payloadHash,approve);const credential=await navigator.credentials.get({publicKey:decodeRequestOptions(options.authentication.publicKey)});if(!credential)throw new Error('승인 보안키 확인이 취소됐습니다');setEthereumReview(await adminApi.decideEthereumPayout(ethereumReview.payload.id,ethereumReview.payloadHash,approve,{challengeId:options.authentication.challengeId,credential:credentialJson(credential)}));}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 결정을 완료하지 못했습니다');}}
   if(loading)return <main className="min-h-screen grid place-items-center text-gray-400">운영 상태를 확인하고 있습니다.</main>;
   if(!user)return <main className="min-h-screen grid place-items-center p-6"><form onSubmit={login} className="w-full max-w-sm rounded-lg border border-gray-700 bg-[#181a20] p-6 space-y-4"><Brand label="CEX 운영자"/><p className="text-sm text-gray-400">승인된 운영자 계정과 추가 인증 장치가 필요합니다.</p><input name="email" type="email" required placeholder="이메일" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/><input name="password" type="password" required placeholder="비밀번호" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/>{error&&<p role="alert" className="text-sm text-red-400">{error}</p>}<button className="w-full rounded bg-yellow-500 py-3 font-semibold text-black">로그인</button></form></main>;
   return <main className="min-h-screen">
@@ -28,6 +33,7 @@ export default function AdminPage(){
       <Section title="승인 대기"><JsonRows rows={approvals} empty="대기 중인 승인 요청이 없습니다."/></Section>
       <Section title="시장감시 신호"><JsonRows rows={signals} empty="확인할 시장감시 신호가 없습니다."/></Section>
       <Section title="최근 감사 기록"><JsonRows rows={audit} empty="조회된 감사 기록이 없습니다."/></Section>
+      <Section title="ETH 지급 검토" description="담당자 제안과 지정된 다른 승인자의 최근 열람·보안키 서명이 모두 필요합니다."><div className="grid gap-4 md:grid-cols-2"><form onSubmit={proposeEthereum} className="space-y-2"><input name="withdrawalId" required placeholder="출금 UUID" className="w-full rounded border border-gray-600 bg-[#0b0e11] p-2"/><input name="checkerId" type="number" min="1" required placeholder="승인자 번호" className="w-full rounded border border-gray-600 bg-[#0b0e11] p-2"/><textarea name="reason" required minLength={10} placeholder="지급 근거와 확인 내용" className="w-full rounded border border-gray-600 bg-[#0b0e11] p-2"/><button className="rounded bg-yellow-500 px-4 py-2 font-semibold text-black">검토 제안</button></form><form onSubmit={inspectEthereum} className="space-y-2"><input name="reviewId" required placeholder="검토 UUID" className="w-full rounded border border-gray-600 bg-[#0b0e11] p-2"/><button className="rounded bg-gray-700 px-4 py-2">지정 검토 열람</button></form></div>{ethereumReview&&<div className="mt-4 rounded bg-[#0b0e11] p-3 text-sm"><p>상태 <strong>{ethereumReview.state}</strong></p><p className="break-all">출금 {ethereumReview.payload.withdrawalId}</p><p>{ethereumReview.payload.amount} ETH → <span className="break-all">{ethereumReview.payload.address}</span></p><p className="mt-2 text-gray-400">{ethereumReview.payload.reason}</p>{ethereumReview.state==='PENDING'&&<div className="mt-3 flex gap-2"><button onClick={()=>void decideEthereum(true)} className="rounded bg-green-600 px-4 py-2">승인 서명</button><button onClick={()=>void decideEthereum(false)} className="rounded bg-red-600 px-4 py-2">거절 서명</button></div>}</div>}</Section>
     </div>
   </main>;
 }

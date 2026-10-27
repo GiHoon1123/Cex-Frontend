@@ -96,3 +96,22 @@ test('이더리움 시장을 선택하면 별도 호가 연결과 주문 원본�
   const panel=page.getByRole('region',{name:'주문 입력'});await panel.getByLabel('가격 (USDT)').fill('3000');await panel.getByLabel('수량 (ETH)').fill('0.1');await panel.getByRole('button',{name:'ETH 매수'}).click();
   await expect.poll(()=>submitted).toMatchObject({baseMint:'ETH',quoteMint:'USDT'});
 });
+
+test('마이페이지가 KYC와 BTC·ETH 입금 주소를 플랫폼에서만 조회한다',async({page})=>{
+  await page.addInitScript(()=>{localStorage.setItem('cex_session_hint','1');});
+  const paths:string[]=[];let ethereumIssued=false;
+  await page.route('**/api/platform/**',async route=>{
+    const request=route.request();const path=new URL(request.url()).pathname.replace('/api/platform','');paths.push(path);
+    if(path==='/api/kyc/session')return route.fulfill({json:{status:{attemptId:'kyc',creationState:'READY',identityStatus:'VERIFIED'},verificationUrl:null}});
+    if(path==='/api/customer/deposit-addresses/BTC')return route.fulfill({json:{id:'btc',asset:'BTC',network:'bitcoin-regtest',address:'bcrt1qportfolio',createdAt:at}});
+    if(path==='/api/customer/deposits/BTC')return route.fulfill({json:{items:[]}});
+    if(path==='/api/customer/deposits/ETH')return route.fulfill({json:[]});
+    if(path==='/api/customer/deposit-addresses/ETH'&&request.method()==='GET'&&!ethereumIssued)return route.fulfill({status:404,json:{message:'주소 없음'}});
+    if(path==='/api/customer/deposit-addresses/ETH'&&request.method()==='POST'){ethereumIssued=true;return route.fulfill({json:{id:'eth',asset:'ETH',network:'ethereum-31337',address:'0x0000000000000000000000000000000000000001',createdAt:at}});}
+    return route.abort();
+  });
+  await page.goto('/mypage');await expect(page.getByText('bcrt1qportfolio')).toBeVisible();await expect(page.getByText('VERIFIED')).toBeVisible();
+  await page.getByRole('tab',{name:'ETH'}).click();await page.getByRole('button',{name:'입금 주소 발급'}).click();
+  await expect(page.getByText('0x0000000000000000000000000000000000000001')).toBeVisible();
+  expect(paths.some(path=>/3002|binance/i.test(path))).toBe(false);expect(paths).toContain('/api/customer/deposit-addresses/ETH');
+});

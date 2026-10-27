@@ -1,3 +1,5 @@
+import type {PublicKeyCredentialCreationOptionsJSON,PublicKeyCredentialRequestOptionsJSON} from '@cex/ui/webauthn';
+
 export interface UserResponse {id:number;email:string;username:string|null;createdAt:string;updatedAt:string}
 export interface SignupRequest {email:string;password:string;username?:string}
 export interface SigninRequest {email:string;password:string}
@@ -10,6 +12,11 @@ export interface Order {id:string;userId:number;orderType:string;orderSide:strin
 export interface Trade {id:string;buyOrderId:string;sellOrderId:string;baseMint:string;quoteMint:string;price:string;amount:string;createdAt:string}
 interface Page<T> {content:T[];page:number;size:number;totalElements:number;totalPages:number}
 export type SubmissionResult = {state:'accepted'|'existing';order:Order} | {state:'uncertain';orderId:string};
+export type CustodyAsset='BTC'|'ETH';
+export interface DepositAddress {id:string;asset:CustodyAsset;network:string;address:string;createdAt:string}
+export interface KycSession {status:{attemptId:string;creationState:string;identityStatus:string|null;providerStatus:string|null;validUntil:string|null;environment:string;lastConfirmedAt:string|null;reconciliationOutcome:string|null};verificationUrl:string|null}
+export interface WithdrawalQuote {payload:{id:string;network:string;asset:CustodyAsset;address:string;amount:string;fee:string;total:string;policy:string;expiresAt:string};payloadHash:string;state:string;assurance:string}
+export interface WithdrawalReceipt {withdrawalId:string;state:string;network:string;address:string;amount:string;fee:string;total:string;policy:string;quoteHash:string}
 
 /** 브라우저에는 토큰 대신 화면 갱신용 힌트만 둔다. 서버는 쿠키의 실제 세션을 매 요청마다 검증한다. */
 export class SessionState {
@@ -51,5 +58,15 @@ export class ApiClient {
   async cancelOrder(id:string){return(await this.json<{order:Order}>(`/api/cex/orders/${encodeURIComponent(id)}`,{method:'DELETE'})).order;}
   async getOrder(id:string){return(await this.json<{order:Order}>(`/api/cex/orders/${encodeURIComponent(id)}`)).order;}
   async getMyTrades(mint='BTC',size=100,page=0){return(await this.json<Page<Trade>>(`/api/cex/trades/my?${new URLSearchParams({mint,size:String(size),page:String(page)})}`)).content;}
+  getKyc(){return this.json<KycSession>('/api/kyc/session');}
+  startKyc(key:string){return this.json<KycSession>('/api/kyc/session',{method:'POST',headers:{'Idempotency-Key':key},body:'{}'});}
+  customerMfaRegistrationOptions(currentPassword:string){return this.json<{challengeId:string;publicKey:PublicKeyCredentialCreationOptionsJSON}>('/api/auth/customer-mfa/register/options',{method:'POST',body:JSON.stringify({currentPassword})});}
+  registerCustomerMfa(challengeId:string,publicKey:unknown){return this.json<{id:string;requiresLogin:boolean}>('/api/auth/customer-mfa/register',{method:'POST',body:JSON.stringify({challengeId,publicKey})});}
+  getDepositAddress(asset:CustodyAsset){return this.json<DepositAddress>(`/api/customer/deposit-addresses/${asset}`);}
+  issueDepositAddress(asset:CustodyAsset){return this.json<DepositAddress>(`/api/customer/deposit-addresses/${asset}`,{method:'POST',body:'{}'});}
+  async getDeposits(asset:CustodyAsset){const result=await this.json<unknown>(`/api/customer/deposits/${asset}`);if(Array.isArray(result))return result as Record<string,unknown>[];const page=result as {items?:Record<string,unknown>[]};return page.items??[];}
+  prepareWithdrawal(asset:CustodyAsset,address:string,amount:string,key:string){return this.json<WithdrawalQuote>(`/api/customer/withdrawals/${asset}/quotes`,{method:'POST',headers:{'Idempotency-Key':key},body:JSON.stringify({address,amount})});}
+  withdrawalOptions(asset:CustodyAsset,quote:string){return this.json<{challengeId:string;purpose:string;quote:WithdrawalQuote;publicKey:PublicKeyCredentialRequestOptionsJSON}>(`/api/customer/withdrawals/${asset}/quotes/${quote}/authorization-options`,{method:'POST',body:'{}'});}
+  reserveWithdrawal(asset:CustodyAsset,quote:string,challengeId:string,publicKey:unknown){return this.json<WithdrawalReceipt>(`/api/customer/withdrawals/${asset}/quotes/${quote}/reservations`,{method:'POST',body:JSON.stringify({challengeId,publicKey})});}
 }
 export const apiClient=new ApiClient();
