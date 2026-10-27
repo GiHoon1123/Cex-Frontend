@@ -31,7 +31,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="bg-gray-800 border-b border-gray-700 sticky top-0 z-50">
+      <header className="bg-[#181a20] border-b border-[#2b3139] sticky top-0 z-50">
         <div className="max-w-[1920px] mx-auto px-6">
           <div className="flex items-center justify-between h-16">
             <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
@@ -56,7 +56,7 @@ export default function Header() {
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors"
+                    className="bg-[#2b3139] hover:bg-[#474d57] text-white px-4 py-2 rounded transition-colors"
                   >
                     로그아웃
                   </button>
@@ -71,7 +71,7 @@ export default function Header() {
                   </button>
                   <button
                     onClick={() => setShowSignup(true)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded transition-colors"
+                    className="bg-[#f0b90b] hover:bg-[#f8d33a] text-[#0b0e11] font-semibold px-4 py-2 rounded transition-colors"
                   >
                     회원가입
                   </button>

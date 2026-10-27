@@ -21,13 +21,13 @@ export default function AssetList({hideHeader=false}:{hideHeader?:boolean}) {
     void load();const timer=setInterval(load,5000);
     return()=>{stopped=true;clearInterval(timer);};
   },[]);
-  return <section className="bg-gray-800 border border-gray-700 rounded-lg p-4 w-full lg:w-64 shrink-0 overflow-y-auto">
+  return <section className="bg-[#181a20] border border-[#2b3139] p-4 w-full lg:w-64 shrink-0 overflow-y-auto">
     {!hideHeader&&<h2 className="font-semibold mb-4">자산 내역</h2>}
     {!loggedIn?<p className="text-sm text-gray-400">로그인 후 확인할 수 있습니다.</p>:<>
       {error&&<p role="alert" className="text-xs text-red-400 mb-2">{error}</p>}
       {balances.filter(b=>['BTC','ETH','USDT'].includes(b.mintAddress)).map(balance=> {
         const position=positions.find(p=>p.mint===balance.mintAddress);
-        return <div key={balance.mintAddress} className="border-b border-gray-700 py-3 text-xs">
+        return <div key={balance.mintAddress} className="border-b border-[#2b3139] py-3 text-xs">
           <h3 className="font-semibold text-base mb-2">{balance.mintAddress==='BTC'?'₿ BTC':balance.mintAddress==='ETH'?'Ξ ETH':'USDT'}</h3>
           <p>사용 가능 <span className="float-right font-mono">{balance.available}</span></p>
           <p className="mt-1 text-gray-400">주문 예약 <span className="float-right font-mono">{balance.locked}</span></p>

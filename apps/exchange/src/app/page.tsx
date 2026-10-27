@@ -17,37 +17,37 @@ export default function Home() {
   const [showAssetList, setShowAssetList] = useState(false);
 
   return (
-    <main className="min-h-screen bg-gray-900">
-      {/* 데스크톱 레이아웃 (원래대로 유지) */}
-      <div className="hidden lg:flex h-[calc(100vh-4rem)] justify-center items-start px-8 py-4 overflow-hidden">
-        <div className="scale-[0.8] origin-top w-full max-w-[1920px] h-[125%] flex">
+    <main className="min-h-screen bg-[#0b0e11]">
+      {/* 데스크톱은 축소하지 않고 화면 전체를 거래 정보에 사용한다. */}
+      <div className="hidden lg:flex h-[calc(100vh-4rem)] overflow-hidden">
+        <div className="w-full h-full flex">
           {/* 좌측: 자산 리스트 */}
           <AssetList />
 
           {/* 중앙: 차트 + 주문 패널 */}
-          <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
+          <div className="flex-1 min-w-0 flex flex-col overflow-hidden border-x border-[#2b3139]">
             {/* 차트 영역 */}
-            <div className="flex-[1.5] min-h-0">
-              <div className="mb-3">
+            <div className="flex-[1.55] min-h-0">
+              <div className="h-12 px-4 border-b border-[#2b3139] flex items-center">
                 <div className="flex items-center gap-3"><h2 className="text-lg font-semibold text-white">{selectedMarket}</h2><MarketSelector base={base} setBase={setBase}/></div>
               </div>
-              <div className="h-full">
+              <div className="h-[calc(100%-3rem)]">
                 <MarketChart />
               </div>
             </div>
 
             {/* 주문 패널 */}
-            <div className="flex-[1] min-h-0 flex-shrink-0 overflow-hidden">
+            <div className="flex-[1] min-h-0 flex-shrink-0 overflow-hidden border-t border-[#2b3139]">
               <OrderPanel />
             </div>
           </div>
 
           {/* 우측: 호가창 + 체결 내역 */}
-          <div className="w-72 flex-shrink-0 p-6 flex flex-col gap-6 overflow-hidden">
+          <div className="w-80 flex-shrink-0 flex flex-col overflow-hidden">
             <div className="flex-1 min-h-0">
               <OrderBook />
             </div>
-            <div className="h-56">
+            <div className="h-64 border-t border-[#2b3139]">
               <TradeHistory />
             </div>
           </div>
@@ -93,7 +93,7 @@ export default function Home() {
             onClick={() => setActiveTab('chart')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'chart'
-                ? 'bg-gray-900 text-white border-b-2 border-blue-500'
+                ? 'bg-gray-900 text-white border-b-2 border-[#f0b90b]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -103,7 +103,7 @@ export default function Home() {
             onClick={() => setActiveTab('orderbook')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'orderbook'
-                ? 'bg-gray-900 text-white border-b-2 border-blue-500'
+                ? 'bg-gray-900 text-white border-b-2 border-[#f0b90b]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >
@@ -113,7 +113,7 @@ export default function Home() {
             onClick={() => setActiveTab('order')}
             className={`flex-1 py-3 text-sm font-medium transition-colors ${
               activeTab === 'order'
-                ? 'bg-gray-900 text-white border-b-2 border-blue-500'
+                ? 'bg-gray-900 text-white border-b-2 border-[#f0b90b]'
                 : 'text-gray-400 hover:text-white'
             }`}
           >

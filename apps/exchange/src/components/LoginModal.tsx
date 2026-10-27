@@ -43,8 +43,8 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToSignup }: Log
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#181a20] border border-[#2b3139] rounded-lg p-6 w-full max-w-md shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-white">로그인</h2>
           <button
@@ -73,7 +73,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToSignup }: Log
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
               placeholder="user@example.com"
             />
           </div>
@@ -89,7 +89,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToSignup }: Log
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
               placeholder="비밀번호를 입력하세요"
             />
           </div>
@@ -97,7 +97,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToSignup }: Log
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#f0b90b] hover:bg-[#f8d33a] text-[#0b0e11] font-semibold py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -107,7 +107,7 @@ export default function LoginModal({ onClose, onSuccess, onSwitchToSignup }: Log
           <span className="text-gray-400">계정이 없으신가요? </span>
           <button
             onClick={onSwitchToSignup}
-            className="text-blue-500 hover:text-blue-400 font-semibold"
+            className="text-[#f0b90b] hover:text-[#f8d33a] font-semibold"
           >
             회원가입
           </button>

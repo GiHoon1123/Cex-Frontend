@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+:root {
+  color-scheme: dark;
+  background: #0b0e11;
+}
+
+body {
+  margin: 0;
+  background: #0b0e11;
+  color: #eaecef;
+}
+
 /* 서버 점검 알림 배너 스크롤 애니메이션 */
 @keyframes scroll {
   0% {

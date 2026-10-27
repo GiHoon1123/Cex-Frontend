@@ -15,8 +15,8 @@ export default function MarketChart() {
   const series=useRef<ISeriesApi<'Candlestick'>|null>(null);
   useEffect(()=> {
     if(!container.current)return;
-    const chart=createChart(container.current,{autoSize:true,layout:{background:{type:ColorType.Solid,color:'#111827'},textColor:'#9ca3af',attributionLogo:true},grid:{vertLines:{color:'#1f2937'},horzLines:{color:'#1f2937'}},timeScale:{timeVisible:true}});
-    series.current=chart.addSeries(CandlestickSeries,{upColor:'#10b981',downColor:'#ef4444',borderVisible:false,wickUpColor:'#10b981',wickDownColor:'#ef4444'});
+    const chart=createChart(container.current,{autoSize:true,layout:{background:{type:ColorType.Solid,color:'#0b0e11'},textColor:'#848e9c',attributionLogo:true},grid:{vertLines:{color:'#1e2329'},horzLines:{color:'#1e2329'}},timeScale:{timeVisible:true,borderColor:'#2b3139'},rightPriceScale:{borderColor:'#2b3139'}});
+    series.current=chart.addSeries(CandlestickSeries,{upColor:'#0ecb81',downColor:'#f6465d',borderVisible:false,wickUpColor:'#0ecb81',wickDownColor:'#f6465d'});
     return()=>{series.current=null;chart.remove();};
   },[]);
   useEffect(()=> {
@@ -39,7 +39,7 @@ export default function MarketChart() {
       }).catch(()=>{if(!abort.signal.aborted)setError(true);});
     return()=>abort.abort();
   },[latestTrade,base]);
-  return <section className="h-full min-h-64 relative bg-gray-900 rounded-lg border border-gray-700 p-2">
+  return <section className="h-full min-h-64 relative bg-[#0b0e11] border border-[#2b3139] p-2">
     <p className="text-xs text-gray-400 mb-1">{base}/USDT · 자체 체결 1분 봉 · 최근 5천 체결 범위</p>
     <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label={`${base} 자체 체결 차트`} />
     {(empty||error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{error?'차트 데이터를 불러오지 못했습니다.':'체결이 발생하면 차트가 표시됩니다.'}</p>}

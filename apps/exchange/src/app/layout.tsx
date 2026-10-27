@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="bg-gray-900 text-white min-h-screen">
+      <body className="bg-[#0b0e11] text-white min-h-screen">
         <AutoLogoutProvider>
           <MarketProvider>
             <Header />
