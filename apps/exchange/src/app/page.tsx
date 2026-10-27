@@ -6,11 +6,13 @@ import OrderPanel from '@/components/OrderPanel';
 import OrderBook from '@/components/OrderBook';
 import TradeHistory from '@/components/TradeHistory';
 import AssetList from '@/components/AssetList';
+import {useMarket} from '@/contexts/MarketContext';
 
 type TabType = 'chart' | 'orderbook' | 'order';
 
 export default function Home() {
-  const [selectedMarket] = useState('BTC/USDT');
+  const {base,setBase}=useMarket();
+  const selectedMarket=`${base}/USDT`;
   const [activeTab, setActiveTab] = useState<TabType>('chart');
   const [showAssetList, setShowAssetList] = useState(false);
 
@@ -27,7 +29,7 @@ export default function Home() {
             {/* 차트 영역 */}
             <div className="flex-[1.5] min-h-0">
               <div className="mb-3">
-                <h2 className="text-lg font-semibold text-white">{selectedMarket}</h2>
+                <div className="flex items-center gap-3"><h2 className="text-lg font-semibold text-white">{selectedMarket}</h2><MarketSelector base={base} setBase={setBase}/></div>
               </div>
               <div className="h-full">
                 <MarketChart />
@@ -56,7 +58,7 @@ export default function Home() {
       <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
         {/* 상단: 마켓 정보 + 자산 버튼 */}
         <div className="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-white">{selectedMarket}</h2>
+          <div className="flex items-center gap-2"><h2 className="text-base font-semibold text-white">{selectedMarket}</h2><MarketSelector base={base} setBase={setBase}/></div>
           <button
             onClick={() => setShowAssetList(!showAssetList)}
             className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors"
@@ -152,5 +154,9 @@ export default function Home() {
       </div>
     </main>
   );
+}
+
+function MarketSelector({base,setBase}:{base:'BTC'|'ETH';setBase:(base:'BTC'|'ETH')=>void}){
+  return <label className="text-xs text-gray-400">시장 <select aria-label="거래 시장" value={base} onChange={event=>setBase(event.target.value as 'BTC'|'ETH')} className="ml-1 rounded bg-gray-800 border border-gray-600 px-2 py-1 text-white"><option value="BTC">BTC/USDT</option><option value="ETH">ETH/USDT</option></select></label>;
 }
 

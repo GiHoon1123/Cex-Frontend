@@ -8,7 +8,7 @@ interface Candle {time:number;open:string;high:string;low:string;close:string;vo
  * 숫자 변환은 캔버스 좌표용이며 주문 금액의 권위로 사용하지 않는다. */
 export default function MarketChart() {
   const container=useRef<HTMLDivElement>(null);
-  const {view}=useMarket();
+  const {view,base}=useMarket();
   const latestTrade=view?.trades[0]?.id;
   const [empty,setEmpty]=useState(true),[error,setError]=useState(false);
   const previous=useRef<Candle[]>([]);
@@ -23,7 +23,7 @@ export default function MarketChart() {
     const abort=new AbortController();
     // 중간 소켓 프레임이 합쳐져도 봉은 영속 체결에서 다시 읽는다. 같은 응답을
     // 받은 뒤 로컬 체결을 또 합산해 거래량을 중복 계산하지 않는다.
-    fetch('/api/platform/api/market/BTC/USDT/candles',{signal:abort.signal,credentials:'same-origin'})
+    fetch(`/api/platform/api/market/${base}/USDT/candles`,{signal:abort.signal,credentials:'same-origin'})
       .then(response=>{if(!response.ok)throw new Error();return response.json() as Promise<Candle[]>;})
       .then(candles=> {
         if(abort.signal.aborted)return;
@@ -38,10 +38,10 @@ export default function MarketChart() {
         setEmpty(candles.length===0);setError(false);
       }).catch(()=>{if(!abort.signal.aborted)setError(true);});
     return()=>abort.abort();
-  },[latestTrade]);
+  },[latestTrade,base]);
   return <section className="h-full min-h-64 relative bg-gray-900 rounded-lg border border-gray-700 p-2">
-    <p className="text-xs text-gray-400 mb-1">BTC/USDT · 자체 체결 1분 봉 · 최근 5천 체결 범위</p>
-    <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label="BTC 자체 체결 차트" />
+    <p className="text-xs text-gray-400 mb-1">{base}/USDT · 자체 체결 1분 봉 · 최근 5천 체결 범위</p>
+    <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label={`${base} 자체 체결 차트`} />
     {(empty||error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{error?'차트 데이터를 불러오지 못했습니다.':'체결이 발생하면 차트가 표시됩니다.'}</p>}
   </section>;
 }

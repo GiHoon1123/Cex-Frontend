@@ -3,8 +3,8 @@
 export const PLATFORM_ORIGIN = process.env.NEXT_PUBLIC_PLATFORM_URL ??
   (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : '');
 
-export function marketSocketUrl(pageOrigin: string): string {
-  const url = new URL('/ws/market/BTC/USDT', PLATFORM_ORIGIN || pageOrigin);
+export function marketSocketUrl(pageOrigin:string,base='BTC',quote='USDT'):string {
+  const url = new URL(`/ws/market/${base}/${quote}`, PLATFORM_ORIGIN || pageOrigin);
   url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
   return url.toString();
 }

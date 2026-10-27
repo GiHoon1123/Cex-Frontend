@@ -186,7 +186,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                                 <span className="text-gray-400">체결 수량:</span>
                                 <span className="text-white ml-2">
                                   {parseFloat(order.filledAmount) > 0
-                                    ? `${parseFloat(order.filledAmount).toFixed(4)} BTC`
+                                    ? `${parseFloat(order.filledAmount).toFixed(4)} ${order.baseMint}`
                                     : '--'}
                                 </span>
                               </div>
@@ -207,7 +207,7 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                                 <span className="text-gray-400">체결 수량:</span>
                                 <span className="text-white ml-2">
                                   {parseFloat(order.filledAmount) > 0
-                                    ? `${parseFloat(order.filledAmount).toFixed(4)} BTC`
+                                    ? `${parseFloat(order.filledAmount).toFixed(4)} ${order.baseMint}`
                                     : '--'}
                                 </span>
                               </div>
@@ -260,13 +260,13 @@ export default function MyOrders({ filterStatus }: MyOrdersProps) {
                           <span className="text-white ml-2">
                             {order.orderSide === 'market' && order.orderType === 'buy' && parseFloat(order.amount) === 0
                               ? '매칭 대기 중'
-                              : `${parseFloat(order.amount).toFixed(4)} BTC`}
+                              : `${parseFloat(order.amount).toFixed(4)} ${order.baseMint}`}
                           </span>
                         </div>
                         <div>
                           <span className="text-gray-400">체결:</span>
                           <span className="text-white ml-2">
-                            {parseFloat(order.filledAmount).toFixed(4)} BTC
+                            {parseFloat(order.filledAmount).toFixed(4)} {order.baseMint}
                           </span>
                         </div>
                         <div>

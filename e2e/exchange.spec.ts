@@ -1,7 +1,7 @@
 import {test,expect,Page,WebSocketRoute} from '@playwright/test';
 const at='2026-10-21T00:00:00Z';
-function snapshot(sequence='1',amount?:string) {
-  return {book:{engine_id:'c76095ec-2ac4-40d1-a6ac-1a7a7f61f32a',sequence,previous_sequence:'0',base_mint:'BTC',quote_mint:'USDT',timestamp:at,bids:[],asks:amount?[['60000',amount]]:[]},trades:sequence==='1'?[]:[{id:'public-trade',price:'60000',amount:'0.001',side:'buy',timestamp:at}]};
+function snapshot(sequence='1',amount?:string,base='BTC') {
+  return {book:{engine_id:'c76095ec-2ac4-40d1-a6ac-1a7a7f61f32a',sequence,previous_sequence:'0',base_mint:base,quote_mint:'USDT',timestamp:at,bids:[],asks:amount?[['60000',amount]]:[]},trades:sequence==='1'?[]:[{id:'public-trade',price:'60000',amount:'0.001',side:'buy',timestamp:at}]};
 }
 async function publicRoutes(page:Page,candles:unknown[]=[]) {
   const requests:string[]=[];
@@ -83,4 +83,16 @@ test('개인 주문 조회와 취소에서도 큰 주문 ID를 문자열로 전�
   await expect.poll(()=>cancelled.length).toBe(1);
   await expect(page.getByRole('button',{name:'주문 취소',exact:true})).toHaveCount(0);
   expect(cancelled[0]).toContain('/api/platform/api/cex/orders/9007199254740993');
+});
+
+test('이더리움 시장을 선택하면 별도 호가 연결과 주문 원본을 사용한다',async({page})=>{
+  await page.addInitScript(()=>{localStorage.setItem('cex_session_hint','1');});
+  await publicRoutes(page);let submitted:unknown;
+  await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot())));
+  await page.routeWebSocket('ws://platform.invalid/ws/market/ETH/USDT',socket=>socket.send(JSON.stringify(snapshot('2','3','ETH'))));
+  await page.route('**/api/platform/api/cex/orders',async route=>{submitted=route.request().postDataJSON();await route.fulfill({status:201,json:{order:{id:'77',status:'pending'}}});});
+  await page.goto('/');await page.getByLabel('거래 시장').first().selectOption('ETH');
+  await expect(page.getByRole('heading',{name:'호가창 · ETH/USDT'}).first()).toBeVisible();
+  const panel=page.getByRole('region',{name:'주문 입력'});await panel.getByLabel('가격 (USDT)').fill('3000');await panel.getByLabel('수량 (ETH)').fill('0.1');await panel.getByRole('button',{name:'ETH 매수'}).click();
+  await expect.poll(()=>submitted).toMatchObject({baseMint:'ETH',quoteMint:'USDT'});
 });

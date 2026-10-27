@@ -13,7 +13,7 @@ export default function OrderPanel() {
   const [price,setPrice]=useState(''),[amount,setAmount]=useState(''),[budget,setBudget]=useState('');
   const [balances,setBalances]=useState<Balance[]>([]),[owner,setOwner]=useState<number|null>(null);
   const [intent,setIntent]=useState<Intent|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState('');
-  const {view}=useMarket();const lastPrice=view?.trades[0]?.price;
+  const {view,base}=useMarket();const lastPrice=view?.trades[0]?.price;
   useEffect(()=> {
     let stopped=false;
     const load=async()=> {
@@ -34,7 +34,7 @@ export default function OrderPanel() {
     try {
       // 화면의 비율 입력도 이진 부동소수점 대신 십진 연산을 사용한다. 내림으로
       // 사용 가능 잔액을 넘지 않는 입력 후보를 만들고 서버가 다시 검증한다.
-      const available=new Decimal(balance(side==='buy'?'USDT':'BTC')).mul(value).div(100);
+      const available=new Decimal(balance(side==='buy'?'USDT':base)).mul(value).div(100);
       if(side==='sell')setAmount(available.toDecimalPlaces(8,Decimal.ROUND_DOWN).toFixed());
       else if(kind==='market')setBudget(available.toDecimalPlaces(2,Decimal.ROUND_DOWN).toFixed());
       else if(new Decimal(price||'0').gt(0))setAmount(available.div(price).toDecimalPlaces(8,Decimal.ROUND_DOWN).toFixed());
@@ -44,7 +44,7 @@ export default function OrderPanel() {
     if(owner===null){setMessage('로그인이 필요합니다.');return;}
     setBusy(true);setMessage('');
     try {
-      const request:CreateOrderRequest={orderType:side,orderSide:kind,baseMint:'BTC',quoteMint:'USDT'};
+      const request:CreateOrderRequest={orderType:side,orderSide:kind,baseMint:base,quoteMint:'USDT'};
       if(kind==='limit'){request.price=price;request.amount=amount;}
       else if(side==='buy')request.quoteAmount=budget;
       else request.amount=amount;
@@ -78,12 +78,12 @@ export default function OrderPanel() {
   return <section className="bg-gray-800 rounded-lg border border-gray-700 p-5 h-full overflow-y-auto" aria-label="주문 입력">
     <div className="flex gap-2 mb-4">{(['buy','sell'] as const).map(value=><button key={value} disabled={disabled} onClick={()=>setSide(value)} className={`flex-1 py-2 rounded ${side===value?(value==='buy'?'bg-emerald-600':'bg-red-600'):'bg-gray-700'}`}>{value==='buy'?'매수':'매도'}</button>)}</div>
     <div className="flex gap-4 text-sm mb-4">{(['limit','market'] as const).map(value=><label key={value}><input type="radio" name="order-kind" checked={kind===value} disabled={disabled} onChange={()=>setKind(value)} /> {value==='limit'?'지정가':'시장가'}</label>)}</div>
-    <p className="text-xs text-gray-400 mb-3">사용 가능 {balance(side==='buy'?'USDT':'BTC')} {side==='buy'?'USDT':'BTC'}</p>
+    <p className="text-xs text-gray-400 mb-3">사용 가능 {balance(side==='buy'?'USDT':base)} {side==='buy'?'USDT':base}</p>
     {kind==='limit'&&<label className="block text-sm mb-3">가격 (USDT)<div className="flex mt-1 gap-2"><input aria-label="가격 (USDT)" type="number" min="0" step="0.01" value={price} disabled={disabled} onChange={e=>setPrice(e.target.value)} className="w-full bg-gray-900 rounded p-2" /><button disabled={disabled||!lastPrice} onClick={()=>lastPrice&&setPrice(lastPrice)} className="text-xs shrink-0">최근 체결가</button></div></label>}
-    {kind==='market'&&side==='buy'?<label className="block text-sm mb-3">매수 금액 (USDT)<input aria-label="매수 금액 (USDT)" type="number" min="0" step="0.01" value={budget} disabled={disabled} onChange={e=>setBudget(e.target.value)} className="block w-full bg-gray-900 rounded p-2 mt-1" /></label>:<label className="block text-sm mb-3">수량 (BTC)<input aria-label="수량 (BTC)" type="number" min="0" step="0.000000001" value={amount} disabled={disabled} onChange={e=>setAmount(e.target.value)} className="block w-full bg-gray-900 rounded p-2 mt-1" /></label>}
+    {kind==='market'&&side==='buy'?<label className="block text-sm mb-3">매수 금액 (USDT)<input aria-label="매수 금액 (USDT)" type="number" min="0" step="0.01" value={budget} disabled={disabled} onChange={e=>setBudget(e.target.value)} className="block w-full bg-gray-900 rounded p-2 mt-1" /></label>:<label className="block text-sm mb-3">수량 ({base})<input aria-label={`수량 (${base})`} type="number" min="0" step="0.000000001" value={amount} disabled={disabled} onChange={e=>setAmount(e.target.value)} className="block w-full bg-gray-900 rounded p-2 mt-1" /></label>}
     <div className="flex gap-2 mb-3">{[25,50,75,100].map(p=><button key={p} disabled={disabled} onClick={()=>percent(p)} className="flex-1 bg-gray-700 rounded py-1 text-xs">{p}%</button>)}</div>
     {kind==='limit'&&total&&<p className="text-xs text-gray-400 mb-3">주문 금액 {total} USDT</p>}
     {message&&<p role="status" className="text-sm text-amber-300 my-3 break-all">{message}</p>}
-    {intent?<button disabled={busy} onClick={()=>void send(intent)} className="w-full bg-amber-700 rounded py-3">{busy?'확인 중…':'같은 주문 접수 확인'}</button>:<button disabled={busy||owner===null} onClick={()=>void send()} className={`w-full rounded py-3 disabled:opacity-50 ${side==='buy'?'bg-emerald-600':'bg-red-600'}`}>{owner===null?'로그인 후 주문':busy?'접수 중…':side==='buy'?'BTC 매수':'BTC 매도'}</button>}
+    {intent?<button disabled={busy} onClick={()=>void send(intent)} className="w-full bg-amber-700 rounded py-3">{busy?'확인 중…':'같은 주문 접수 확인'}</button>:<button disabled={busy||owner===null} onClick={()=>void send()} className={`w-full rounded py-3 disabled:opacity-50 ${side==='buy'?'bg-emerald-600':'bg-red-600'}`}>{owner===null?'로그인 후 주문':busy?'접수 중…':side==='buy'?`${base} 매수`:`${base} 매도`}</button>}
   </section>;
 }

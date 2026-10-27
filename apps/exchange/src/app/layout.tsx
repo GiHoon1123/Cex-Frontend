@@ -5,8 +5,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "BTC Exchange",
-  description: "BTC/USDT 거래 플랫폼",
+  title: "CEX Exchange",
+  description: "BTC·ETH/USDT 거래 플랫폼",
 };
 
 export default function RootLayout({

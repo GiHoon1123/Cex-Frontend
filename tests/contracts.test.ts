@@ -66,6 +66,12 @@ test('다른 시장의 프레임은 BTC 화면에 적용하지 않는다',()=> {
 });
 test('공개 소켓은 플랫폼 진입 경로를 사용한다',()=> {
   assert.equal(marketSocketUrl('https://exchange.local'),'wss://exchange.local/ws/market/BTC/USDT');
+  assert.equal(marketSocketUrl('https://exchange.local','ETH','USDT'),'wss://exchange.local/ws/market/ETH/USDT');
+});
+test('선택한 이더리움 시장만 화면 상태로 받는다',()=> {
+  const ethereum=view('2');ethereum.book.base_mint='ETH';
+  assert.equal(acceptSnapshot(null,ethereum,'ETH','USDT').book.base_mint,'ETH');
+  assert.throws(()=>acceptSnapshot(null,ethereum,'BTC','USDT'));
 });
 
 test('세션 힌트 조회 함수를 구독 콜백과 분리해도 동작한다',()=> {
