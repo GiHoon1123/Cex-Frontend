@@ -139,6 +139,7 @@ test('마이페이지가 KYC와 BTC·ETH 입금 주소를 플랫폼에서만 조
   await page.route('**/api/platform/**',async route=>{
     const request=route.request();const path=new URL(request.url()).pathname.replace('/api/platform','');paths.push(path);
     if(path==='/api/kyc/session')return route.fulfill({json:{status:{attemptId:'kyc',creationState:'READY',identityStatus:'VERIFIED'},verificationUrl:null}});
+    if(path==='/api/customer/email')return route.fulfill({json:{verified:true,recentlyVerified:true}});
     if(path==='/api/customer/deposit-addresses/BTC')return route.fulfill({json:{id:'btc',asset:'BTC',network:'bitcoin-regtest',address:'bcrt1qportfolio',createdAt:at}});
     if(path==='/api/customer/deposits/BTC')return route.fulfill({json:{items:[]}});
     if(path==='/api/customer/deposits/ETH')return route.fulfill({json:[]});
@@ -150,4 +151,25 @@ test('마이페이지가 KYC와 BTC·ETH 입금 주소를 플랫폼에서만 조
   await page.getByRole('tab',{name:'ETH'}).click();await page.getByRole('button',{name:'입금 주소 발급'}).click();
   await expect(page.getByText('0x0000000000000000000000000000000000000001')).toBeVisible();
   expect(paths.some(path=>/3002|binance/i.test(path))).toBe(false);expect(paths).toContain('/api/customer/deposit-addresses/ETH');
+});
+
+test('이메일을 명시적으로 확인한 고객만 출금 보안키를 등록한다',async({page})=>{
+  await page.addInitScript(()=>{localStorage.setItem('cex_session_hint','1');const registration={toJSON:()=>({id:'customer-key',rawId:'AQID',type:'public-key',response:{attestationObject:'AQID',clientDataJSON:'AQID'}})};Object.defineProperty(navigator,'credentials',{configurable:true,value:{create:async()=>registration}});});
+  let emailVerified=false,mfaRegistered=false;
+  await page.route('**/api/platform/**',async route=>{
+    const request=route.request(),path=new URL(request.url()).pathname.replace('/api/platform','');
+    if(path==='/api/kyc/session')return route.fulfill({status:503,json:{message:'Didit 설정 필요'}});
+    if(path==='/api/customer/email'&&request.method()==='GET')return route.fulfill({json:{verified:emailVerified,recentlyVerified:emailVerified}});
+    if(path==='/api/customer/email/challenges')return route.fulfill({json:{challengeId:'11111111-1111-1111-1111-111111111111',expiresAt:at}});
+    if(path==='/api/customer/email/confirmations'){emailVerified=true;return route.fulfill({json:{verified:true,recentlyVerified:true}});}
+    if(path==='/api/auth/customer-mfa/register/options')return route.fulfill({json:{challengeId:'22222222-2222-2222-2222-222222222222',publicKey:{challenge:'AQID',rp:{name:'CEX 고객 인증',id:'127.0.0.1'},user:{id:'AQID',name:'customer',displayName:'고객'},pubKeyCredParams:[{type:'public-key',alg:-7}]}}});
+    if(path==='/api/auth/customer-mfa/register'){mfaRegistered=true;return route.fulfill({json:{id:'33333333-3333-3333-3333-333333333333',requiresLogin:true}});}
+    if(path.includes('/api/customer/deposit'))return route.fulfill({status:404,json:{message:'주소 없음'}});
+    return route.abort();
+  });
+  await page.goto('/mypage');await expect(page.getByRole('button',{name:'보안키 등록'})).toBeDisabled();await expect(page.getByText('상태: Didit 설정 필요',{exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'확인 메일 보내기'}).click();await expect(page.getByRole('status')).toContainText('확인 메일을 보냈습니다');
+  await page.goto('/account/verify-email?challenge=11111111-1111-1111-1111-111111111111&token='+'x'.repeat(43));await page.getByRole('button',{name:'이메일 확인 완료'}).click();await expect(page.getByRole('status')).toContainText('이메일 주소를 확인했습니다');
+  await page.getByRole('link',{name:'마이페이지로 이동'}).click();await page.getByPlaceholder('현재 비밀번호').fill('current-password');await page.getByRole('button',{name:'보안키 등록'}).click();
+  await expect.poll(()=>mfaRegistered).toBe(true);await expect(page.getByRole('status')).toContainText('보안키를 등록했습니다');
 });

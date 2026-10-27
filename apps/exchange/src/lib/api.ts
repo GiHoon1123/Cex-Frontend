@@ -15,6 +15,8 @@ export type SubmissionResult = {state:'accepted'|'existing';order:Order} | {stat
 export type CustodyAsset='BTC'|'ETH';
 export interface DepositAddress {id:string;asset:CustodyAsset;network:string;address:string;createdAt:string}
 export interface KycSession {status:{attemptId:string;creationState:string;identityStatus:string|null;providerStatus:string|null;validUntil:string|null;environment:string;lastConfirmedAt:string|null;reconciliationOutcome:string|null};verificationUrl:string|null}
+export interface EmailVerificationStatus {verified:boolean;recentlyVerified:boolean}
+export interface EmailVerificationChallenge {challengeId:string;expiresAt:string}
 export interface WithdrawalQuote {payload:{id:string;network:string;asset:CustodyAsset;address:string;amount:string;fee:string;total:string;policy:string;expiresAt:string};payloadHash:string;state:string;assurance:string}
 export interface WithdrawalReceipt {withdrawalId:string;state:string;network:string;address:string;amount:string;fee:string;total:string;policy:string;quoteHash:string}
 
@@ -75,6 +77,9 @@ export class ApiClient {
   async getMyTrades(mint='BTC',size=100,page=0){return(await this.json<Page<Trade>>(`/api/cex/trades/my?${new URLSearchParams({mint,size:String(size),page:String(page)})}`)).content;}
   getKyc(){return this.json<KycSession>('/api/kyc/session');}
   startKyc(key:string){return this.json<KycSession>('/api/kyc/session',{method:'POST',headers:{'Idempotency-Key':key},body:'{}'});}
+  getEmailVerification(){return this.json<EmailVerificationStatus>('/api/customer/email');}
+  requestEmailVerification(key:string){return this.json<EmailVerificationChallenge>('/api/customer/email/challenges',{method:'POST',headers:{'Idempotency-Key':key},body:'{}'});}
+  confirmEmailVerification(challengeId:string,token:string){return this.json<EmailVerificationStatus>('/api/customer/email/confirmations',{method:'POST',body:JSON.stringify({challengeId,token})});}
   customerMfaRegistrationOptions(currentPassword:string){return this.json<{challengeId:string;publicKey:PublicKeyCredentialCreationOptionsJSON}>('/api/auth/customer-mfa/register/options',{method:'POST',body:JSON.stringify({currentPassword})});}
   registerCustomerMfa(challengeId:string,publicKey:unknown){return this.json<{id:string;requiresLogin:boolean}>('/api/auth/customer-mfa/register',{method:'POST',body:JSON.stringify({challengeId,publicKey})});}
   getDepositAddress(asset:CustodyAsset){return this.json<DepositAddress>(`/api/customer/deposit-addresses/${asset}`);}
