@@ -16,6 +16,7 @@
 - [ETH/USDT 거래 화면](decisions/004-ethereum-market.md): 시장별 소켓·차트·주문 원본과 브라우저 검증.
 - [고객 자산 업무와 ETH 지급 심사 화면](decisions/005-custody-and-payout-ui.md): KYC·보안키·BTC/ETH 입출금, 운영자 추가 인증과 ETH 지급 승인 계약.
 - [고객·운영 프론트의 한 이미지와 두 실행 경계](decisions/006-container-runtime.md): 고정 Node·잠금 설치·비특권 사용자와 두 컨테이너의 실제 HTTP 검증.
+- [실제 브라우저 사용자 흐름 복구](decisions/007-browser-flow-recovery.md): 회원가입 정책, 자체 BTC 체결·차트, 운영자 최초 보안키, 바이낸스 다크 레이아웃의 실제 Chrome 검증.
 
 ## 2026-10-23 실제 코드 발췌 보강
 
