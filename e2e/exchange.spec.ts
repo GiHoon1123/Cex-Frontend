@@ -58,9 +58,16 @@ test('결과 불명 주문은 새로고침 뒤에도 같은 키·본문으로 �
 });
 test('플랫폼이 중계한 Binance 기준 봉을 그리고 브라우저가 Binance를 직접 호출하지 않는다',async({page})=> {
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+  let mainFrameNavigations=0;
+  // 개발 서버의 갱신기가 깨지면 차트 요청이 끝나기 전에 문서 전체를 계속 다시 연다.
+  // 캔버스 표시뿐 아니라 준비가 끝난 뒤 문서 이동이 반복되지 않는지도 함께 검증한다.
+  page.on('framenavigated',frame=>{if(frame===page.mainFrame())mainFrameNavigations++;});
   const requests=await publicRoutes(page,[{time:1792540800,open:'60000',high:'60010',low:'59990',close:'60005',volume:'0.002'}]);
   await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot('2','0.002'))));
   await page.goto('/');await expect(page.getByLabel('BTC Binance 기준 차트').locator('canvas').first()).toBeVisible();
+  // 개발 모드의 최초 번들 확정으로 한 번 다시 열릴 수 있으므로, 차트가 나타난
+  // 시점을 기준으로 이후 문서 전체 이동이 더 생기지 않는지를 검사한다.
+  const navigationsAfterChartReady=mainFrameNavigations;
   await expect(page.getByText('BTC/USDT · Binance 외부 기준 시세',{exact:false}).first()).toBeVisible();
   await expect(page.getByText('자체 호가창 · BTC/USDT').first()).toBeVisible();
   await expect(page.getByText('최근 자체 체결').first()).toBeVisible();
@@ -69,6 +76,8 @@ test('플랫폼이 중계한 Binance 기준 봉을 그리고 브라우저가 Bin
     await page.getByRole('button',{name:interval,exact:true}).first().click();
     await expect.poll(()=>requests.some(url=>new URL(url).searchParams.get('interval')===values[interval])).toBe(true);
   }
+  await page.waitForTimeout(1000);
+  expect(mainFrameNavigations).toBe(navigationsAfterChartReady);
   expect(errors).toEqual([]);expect(requests.some(url=>url.includes('tv.js')||url.includes('binance'))).toBe(false);
 });
 
