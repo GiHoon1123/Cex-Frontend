@@ -1,5 +1,0 @@
-{
-  "/api/platform/[...path]/route": "app/api/platform/[...path]/route.js",
-  "/api/session/csrf/route": "app/api/session/csrf/route.js",
-  "/page": "app/page.js"
-}

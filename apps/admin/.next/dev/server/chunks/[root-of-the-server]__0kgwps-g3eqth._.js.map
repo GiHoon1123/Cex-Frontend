@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 82, "column": 0}, "map": {"version":3,"sources":["file:///Users/dustin/Desktop/common/project/Cex-Frontend/apps/admin/src/app/api/session/csrf/route.ts"],"sourcesContent":["import {randomBytes} from 'node:crypto';\nimport {NextResponse} from 'next/server';\n\nexport async function GET(){\n  const token=randomBytes(32).toString('hex');\n  const response=NextResponse.json({token});\n  // 이 값은 자바스크립트가 요청 헤더에 복사해야 하므로 인증 쿠키와 달리 읽을 수 있어야 한다.\n  response.cookies.set('cex_admin_csrf',token,{httpOnly:false,sameSite:'strict',secure:process.env.NODE_ENV==='production',path:'/'});\n  response.headers.set('Cache-Control','no-store');\n  return response;\n}\n"],"names":["GET","token","toString","response","json","cookies","set","httpOnly","sameSite","secure","path","headers"],"mappings":";;;;AAAA;AACA;;;AAEO,eAAeA;IACpB,MAAMC,QAAM,IAAA,oIAAW,EAAC,IAAIC,QAAQ,CAAC;IACrC,MAAMC,WAAS,gJAAY,CAACC,IAAI,CAAC;QAACH;IAAK;IACvC,sDAAsD;IACtDE,SAASE,OAAO,CAACC,GAAG,CAAC,kBAAiBL,OAAM;QAACM,UAAS;QAAMC,UAAS;QAASC,QAAO,oDAAuB;QAAaC,MAAK;IAAG;IACjIP,SAASQ,OAAO,CAACL,GAAG,CAAC,iBAAgB;IACrC,OAAOH;AACT"}}]
-}

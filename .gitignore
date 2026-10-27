@@ -9,7 +9,7 @@
 /coverage
 
 # next.js
-/.next/
+.next*/
 /out/
 
 # production
@@ -41,3 +41,4 @@ next-env.d.ts
 .next-market-*/
 playwright-report/
 test-results/
+apps/*/AGENTS.md
