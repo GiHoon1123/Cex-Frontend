@@ -10,7 +10,7 @@ async function publicRoutes(page:Page,candles:unknown[]=[]) {
   await page.route('**/api/platform/**',async route=> {
     const path=new URL(route.request().url()).pathname.replace('/api/platform','');
     let body:unknown;
-    if(path.endsWith('/candles'))body=candles;
+    if(path.endsWith('/reference-candles'))body={source:'BINANCE',market:path.includes('/ETH/')?'ETH/USDT':'BTC/USDT',interval:'1m',fetchedAt:at,candles};
     else if(path==='/api/cex/balances')body=[{userId:1,mintAddress:'BTC',available:'1.000000001',locked:'0',total:'1.000000001'},{userId:1,mintAddress:'USDT',available:'1000',locked:'0',total:'1000'}];
     else if(path==='/api/cex/positions')body=[];
     else if(path==='/api/auth/me')body={id:1,email:'browser@local.test',username:'검증 사용자',createdAt:at,updatedAt:at};
@@ -56,12 +56,14 @@ test('결과 불명 주문은 새로고침 뒤에도 같은 키·본문으로 �
   expect(calls).toHaveLength(2);expect(calls[0]).toEqual(calls[1]);expect(calls[0].key).toMatch(/^[0-9a-f-]{36}$/);
   expect(JSON.parse(calls[0].body!)).toEqual({orderType:'buy',orderSide:'limit',baseMint:'BTC',quoteMint:'USDT',price:'60000',amount:'0.001'});
 });
-test('자체 체결 봉으로 차트를 렌더링하고 외부 위젯을 로드하지 않는다',async({page})=> {
+test('플랫폼이 중계한 Binance 기준 봉을 그리고 브라우저가 Binance를 직접 호출하지 않는다',async({page})=> {
   const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
   const requests=await publicRoutes(page,[{time:1792540800,open:'60000',high:'60010',low:'59990',close:'60005',volume:'0.002'}]);
   await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot('2','0.002'))));
-  await page.goto('/');await expect(page.getByLabel('BTC 자체 체결 차트').locator('canvas').first()).toBeVisible();
-  await expect(page.getByText('체결이 발생하면 차트가 표시됩니다.')).toHaveCount(0);
+  await page.goto('/');await expect(page.getByLabel('BTC Binance 기준 차트').locator('canvas').first()).toBeVisible();
+  await expect(page.getByText('BTC/USDT · Binance 외부 기준 시세',{exact:false}).first()).toBeVisible();
+  await expect(page.getByText('자체 호가창 · BTC/USDT').first()).toBeVisible();
+  await expect(page.getByText('최근 자체 체결').first()).toBeVisible();
   expect(errors).toEqual([]);expect(requests.some(url=>url.includes('tv.js')||url.includes('binance'))).toBe(false);
 });
 

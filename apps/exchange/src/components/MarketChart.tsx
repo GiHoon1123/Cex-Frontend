@@ -3,14 +3,15 @@ import {useEffect,useRef,useState} from 'react';
 import {CandlestickSeries,ColorType,createChart,UTCTimestamp,ISeriesApi} from 'lightweight-charts';
 import {useMarket} from '@/contexts/MarketContext';
 interface Candle {time:number;open:string;high:string;low:string;close:string;volume:string}
+interface ReferenceCandles {source:'BINANCE';market:string;interval:'1m';fetchedAt:string;candles:Candle[]}
 
-/** 외부 위젯 대신 설치한 차트 라이브러리에 자체 체결 봉을 제공한다.
- * 숫자 변환은 캔버스 좌표용이며 주문 금액의 권위로 사용하지 않는다. */
+/** 외부 위젯 대신 플랫폼이 검증한 Binance 기준 봉을 그린다.
+ * 기준 차트는 자체 호가·체결 가격의 권위가 아니며, 숫자 변환은 캔버스 좌표에만 사용한다. */
 export default function MarketChart() {
   const container=useRef<HTMLDivElement>(null);
-  const {view,base}=useMarket();
-  const latestTrade=view?.trades[0]?.id;
+  const {base}=useMarket();
   const [empty,setEmpty]=useState(true),[error,setError]=useState(false);
+  const [fetchedAt,setFetchedAt]=useState<string|null>(null);
   const previous=useRef<Candle[]>([]);
   const series=useRef<ISeriesApi<'Candlestick'>|null>(null);
   useEffect(()=> {
@@ -21,12 +22,12 @@ export default function MarketChart() {
   },[]);
   useEffect(()=> {
     const abort=new AbortController();
-    // 중간 소켓 프레임이 합쳐져도 봉은 영속 체결에서 다시 읽는다. 같은 응답을
-    // 받은 뒤 로컬 체결을 또 합산해 거래량을 중복 계산하지 않는다.
-    fetch(`/api/platform/api/market/${base}/USDT/candles`,{signal:abort.signal,credentials:'same-origin'})
-      .then(response=>{if(!response.ok)throw new Error();return response.json() as Promise<Candle[]>;})
-      .then(candles=> {
+    const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles`,{signal:abort.signal,credentials:'same-origin'})
+      .then(response=>{if(!response.ok)throw new Error();return response.json() as Promise<ReferenceCandles>;})
+      .then(reference=> {
         if(abort.signal.aborted)return;
+        if(reference.source!=='BINANCE'||reference.market!==`${base}/USDT`||reference.interval!=='1m'||!Array.isArray(reference.candles))throw new Error();
+        const candles=reference.candles;
         const point=(c:Candle)=>({time:c.time as UTCTimestamp,open:Number(c.open),high:Number(c.high),low:Number(c.low),close:Number(c.close)});
         const old=previous.current;
         // 과거 봉이 같으면 마지막 봉과 새 봉만 갱신한다. 조회 범위가 이동하거나
@@ -35,13 +36,14 @@ export default function MarketChart() {
         if(unchanged) candles.slice(old.length-1).forEach(c=>series.current?.update(point(c)));
         else series.current?.setData(candles.map(point));
         previous.current=candles;
-        setEmpty(candles.length===0);setError(false);
+        setFetchedAt(reference.fetchedAt);setEmpty(candles.length===0);setError(false);
       }).catch(()=>{if(!abort.signal.aborted)setError(true);});
-    return()=>abort.abort();
-  },[latestTrade,base]);
+    void load();const timer=setInterval(load,15000);
+    return()=>{clearInterval(timer);abort.abort();};
+  },[base]);
   return <section className="h-full min-h-64 relative bg-[#0b0e11] border border-[#2b3139] p-2">
-    <p className="text-xs text-gray-400 mb-1">{base}/USDT · 자체 체결 1분 봉 · 최근 5천 체결 범위</p>
-    <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label={`${base} 자체 체결 차트`} />
-    {(empty||error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{error?'차트 데이터를 불러오지 못했습니다.':'체결이 발생하면 차트가 표시됩니다.'}</p>}
+    <p className="text-xs text-gray-400 mb-1">{base}/USDT · Binance 외부 기준 시세 · 1분 봉{fetchedAt?` · ${new Date(fetchedAt).toLocaleTimeString('ko-KR')} 갱신`:''}</p>
+    <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label={`${base} Binance 기준 차트`} />
+    {(empty||error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{error?'Binance 기준 시세를 불러오지 못했습니다.':'표시할 외부 기준 봉이 없습니다.'}</p>}
   </section>;
 }

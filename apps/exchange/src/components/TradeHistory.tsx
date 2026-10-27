@@ -4,7 +4,7 @@ import {useMarket} from '@/contexts/MarketContext';
 export default function TradeHistory() {
   const {view}=useMarket();
   return <section className="bg-[#181a20] border border-[#2b3139] p-4 h-full overflow-y-auto" aria-label="최근 자체 체결">
-    <h2 className="font-semibold mb-3">최근 체결</h2>
+    <h2 className="font-semibold mb-3">최근 자체 체결</h2>
     {!view?.trades.length?<p className="text-gray-400 text-sm">아직 체결이 없습니다.</p>:view.trades.slice(0,20).map(trade=>
       <div key={trade.id} className="grid grid-cols-3 gap-2 text-xs py-1 font-mono">
         <span className={trade.side==='buy'?'text-emerald-400':'text-red-400'}>{Number(trade.price).toLocaleString('en-US',{minimumFractionDigits:2})}</span>
