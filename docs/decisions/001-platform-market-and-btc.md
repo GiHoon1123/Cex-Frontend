@@ -42,7 +42,7 @@ flowchart LR
 - [시장 컨텍스트](../../apps/exchange/src/contexts/MarketContext.tsx)는 화면 전체에서 소켓 하나를 공유한다. 1초 뒤 재연결하고, 30초 동안 심박이 없으면 닫아 전체 상태를 다시 받는다.
 - [스냅샷 검사](../../apps/exchange/src/lib/market.ts)는 잘못된 거래쌍·금액 구조를 거부한다. 문자열 순번은 `BigInt`로 비교해 같은 엔진의 중복·역순 프레임이 화면을 되돌리지 못하게 한다.
 - [호가창](../../apps/exchange/src/components/OrderBook.tsx)·[최근 체결](../../apps/exchange/src/components/TradeHistory.tsx)은 자체 데이터만 표시한다. 호가나 체결이 없으면 빈 상태를 표시한다.
-- [차트](../../apps/exchange/src/components/MarketChart.tsx)는 플랫폼의 최근 5천 체결 기반 1분 봉을 받는다. 같은 과거 봉은 유지하고 마지막 봉·새 봉만 갱신하며, 조회 범위가 바뀌면 전체를 재동기화한다. 맨 앞 봉은 해당 조회 범위 안의 체결 기준이라는 한계가 있다.
+- [차트](../../apps/exchange/src/components/MarketChart.tsx)는 최초에 자체 체결 1분 봉을 사용했다. 2026-10-27 후속 변경으로 [Binance 외부 기준 차트](008-binance-reference-chart.md)로 교체했으며, 호가창·최근 체결은 자체 데이터를 유지한다.
 - [API 클라이언트](../../apps/exchange/src/lib/api.ts)는 플랫폼의 카멜 표기·배열·페이지 응답을 직접 사용한다. 금액과 주문 식별자는 문자열이다. 플랫폼이 제공하지 않는 지갑 API·프록시와 이전 외부 위젯을 삭제했다.
 - 계정 화면은 거래소 잔액을 표시한다. BTC 온체인 입출금·수탁 구현을 의미하지 않는다. 기존 금융 기록이나 SOL WAL은 변경하지 않았다.
 
