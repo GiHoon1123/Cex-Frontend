@@ -32,31 +32,31 @@ export default function Header() {
   return (
     <>
       <header className="bg-[#181a20] border-b border-[#2b3139] sticky top-0 z-50">
-        <div className="max-w-[1920px] mx-auto px-6">
+        <div className="max-w-[1920px] mx-auto px-3 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center hover:opacity-80 transition-opacity">
+            <Link href="/" className="flex shrink-0 items-center whitespace-nowrap text-sm sm:text-base hover:opacity-80 transition-opacity">
               <Brand label="CEX 거래소" />
             </Link>
 
             {/* 고객 인증 상태에 따라 거래 메뉴와 로그인 동작을 나눈다. */}
-            <div className="flex items-center gap-4">
+            <div className="flex min-w-0 items-center gap-1 sm:gap-4">
               {isAuthenticated ? (
                 <>
                   <Link
                     href="/trades"
-                    className="text-gray-300 hover:text-white px-4 py-2 transition-colors"
+                    className="whitespace-nowrap text-gray-300 hover:text-white px-2 sm:px-4 py-2 transition-colors"
                   >
-                    거래내역
+                    <span className="sm:hidden">내역</span><span className="hidden sm:inline">거래내역</span>
                   </Link>
                   <Link
                     href="/mypage"
-                    className="text-gray-300 hover:text-white px-4 py-2 transition-colors"
+                    className="whitespace-nowrap text-gray-300 hover:text-white px-2 sm:px-4 py-2 transition-colors"
                   >
-                    마이페이지
+                    <span className="sm:hidden">자산</span><span className="hidden sm:inline">마이페이지</span>
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="bg-[#2b3139] hover:bg-[#474d57] text-white px-4 py-2 rounded transition-colors"
+                    className="whitespace-nowrap bg-[#2b3139] hover:bg-[#474d57] text-white px-2 sm:px-4 py-2 rounded transition-colors"
                   >
                     로그아웃
                   </button>
@@ -65,13 +65,13 @@ export default function Header() {
                 <>
                   <button
                     onClick={() => setShowLogin(true)}
-                    className="text-gray-300 hover:text-white px-4 py-2 transition-colors"
+                    className="whitespace-nowrap text-gray-300 hover:text-white px-2 sm:px-4 py-2 transition-colors"
                   >
                     로그인
                   </button>
                   <button
                     onClick={() => setShowSignup(true)}
-                    className="bg-[#f0b90b] hover:bg-[#f8d33a] text-[#0b0e11] font-semibold px-4 py-2 rounded transition-colors"
+                    className="whitespace-nowrap bg-[#f0b90b] hover:bg-[#f8d33a] text-[#0b0e11] font-semibold px-2 sm:px-4 py-2 rounded transition-colors"
                   >
                     회원가입
                   </button>

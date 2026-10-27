@@ -8,9 +8,9 @@ async function publicRoutes(page:Page,candles:unknown[]=[]) {
   page.on('request',request=>requests.push(request.url()));
   // 모의 플랫폼 출처는 예약 도메인이다. 놓친 요청이 기존 로컬 서비스로 갈 수 없다.
   await page.route('**/api/platform/**',async route=> {
-    const path=new URL(route.request().url()).pathname.replace('/api/platform','');
+    const url=new URL(route.request().url());const path=url.pathname.replace('/api/platform','');
     let body:unknown;
-    if(path.endsWith('/reference-candles'))body={source:'BINANCE',market:path.includes('/ETH/')?'ETH/USDT':'BTC/USDT',interval:'1m',fetchedAt:at,candles};
+    if(path.endsWith('/reference-candles'))body={source:'BINANCE',market:path.includes('/ETH/')?'ETH/USDT':'BTC/USDT',interval:url.searchParams.get('interval'),fetchedAt:at,candles};
     else if(path==='/api/cex/balances')body=[{userId:1,mintAddress:'BTC',available:'1.000000001',locked:'0',total:'1.000000001'},{userId:1,mintAddress:'USDT',available:'1000',locked:'0',total:'1000'}];
     else if(path==='/api/cex/positions')body=[];
     else if(path==='/api/auth/me')body={id:1,email:'browser@local.test',username:'검증 사용자',createdAt:at,updatedAt:at};
@@ -64,7 +64,31 @@ test('플랫폼이 중계한 Binance 기준 봉을 그리고 브라우저가 Bin
   await expect(page.getByText('BTC/USDT · Binance 외부 기준 시세',{exact:false}).first()).toBeVisible();
   await expect(page.getByText('자체 호가창 · BTC/USDT').first()).toBeVisible();
   await expect(page.getByText('최근 자체 체결').first()).toBeVisible();
+  for(const interval of ['5분','15분','1시간','4시간','1일']) {
+    await page.getByRole('button',{name:interval,exact:true}).first().click();
+    await expect.poll(()=>requests.some(url=>url.includes(`interval=${interval==='5분'?'5m':interval==='15분'?'15m':interval==='1시간'?'1h':interval==='4시간'?'4h':'1d'}`))).toBe(true);
+  }
   expect(errors).toEqual([]);expect(requests.some(url=>url.includes('tv.js')||url.includes('binance'))).toBe(false);
+});
+
+test('작은 화면에서도 헤더·시장 선택·차트 기간·주문 영역이 겹치지 않는다',async({page})=> {
+  await publicRoutes(page,[{time:1792540800,open:'60000',high:'60010',low:'59990',close:'60005',volume:'0.002'}]);
+  await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot('2','0.002'))));
+  for(const viewport of [{width:320,height:720},{width:375,height:812},{width:768,height:900},{width:1024,height:768},{width:1440,height:900}]) {
+    await page.setViewportSize(viewport);await page.goto('/');
+    await expect(page.locator('select[aria-label="거래 시장"]:visible')).toBeVisible();
+    await expect(page.getByRole('button',{name:'1일',exact:true})).toBeVisible();
+    const layout=await page.evaluate(()=>({viewport:innerWidth,document:document.documentElement.scrollWidth,
+      header:[...document.querySelectorAll('header a, header button')].map(element=>element.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0).map(rect=>({left:rect.left,right:rect.right,height:rect.height})),
+      selector:(()=>{const element=[...document.querySelectorAll<HTMLSelectElement>('select[aria-label="거래 시장"]')].find(item=>item.getBoundingClientRect().width>0)!;const rect=element.getBoundingClientRect();return{left:rect.left,right:rect.right};})()}));
+    expect(layout.document).toBeLessThanOrEqual(layout.viewport);expect(layout.selector.left).toBeGreaterThanOrEqual(0);expect(layout.selector.right).toBeLessThanOrEqual(layout.viewport);
+    expect(layout.header.every(item=>item.left>=0&&item.right<=layout.viewport&&item.height<=44)).toBe(true);
+    if(viewport.width<1024) {
+      await page.getByRole('button',{name:'주문',exact:true}).click();
+      const panel=page.getByRole('region',{name:'주문 입력'});await expect(panel).toBeVisible();
+      expect((await panel.boundingBox())!.width).toBeGreaterThanOrEqual(viewport.width<640?viewport.width-24:250);
+    }
+  }
 });
 
 test('개인 주문 조회와 취소에서도 큰 주문 ID를 문자열로 전달한다',async({page})=> {
@@ -94,7 +118,7 @@ test('이더리움 시장을 선택하면 별도 호가 연결과 주문 원본�
   await page.routeWebSocket('ws://platform.invalid/ws/market/ETH/USDT',socket=>socket.send(JSON.stringify(snapshot('2','3','ETH'))));
   await page.route('**/api/platform/api/cex/orders',async route=>{submitted=route.request().postDataJSON();await route.fulfill({status:201,json:{order:{id:'77',status:'pending'}}});});
   await page.goto('/');await page.getByLabel('거래 시장').first().selectOption('ETH');
-  await expect(page.getByRole('heading',{name:'호가창 · ETH/USDT'}).first()).toBeVisible();
+  await expect(page.getByRole('heading',{name:'자체 호가창 · ETH/USDT'}).first()).toBeVisible();
   const panel=page.getByRole('region',{name:'주문 입력'});await panel.getByLabel('가격 (USDT)').fill('3000');await panel.getByLabel('수량 (ETH)').fill('0.1');await panel.getByRole('button',{name:'ETH 매수'}).click();
   await expect.poll(()=>submitted).toMatchObject({baseMint:'ETH',quoteMint:'USDT'});
 });

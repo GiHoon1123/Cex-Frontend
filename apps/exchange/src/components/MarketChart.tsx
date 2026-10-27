@@ -3,15 +3,17 @@ import {useEffect,useRef,useState} from 'react';
 import {CandlestickSeries,ColorType,createChart,UTCTimestamp,ISeriesApi} from 'lightweight-charts';
 import {useMarket} from '@/contexts/MarketContext';
 interface Candle {time:number;open:string;high:string;low:string;close:string;volume:string}
-interface ReferenceCandles {source:'BINANCE';market:string;interval:'1m';fetchedAt:string;candles:Candle[]}
+type CandleInterval='1m'|'5m'|'15m'|'1h'|'4h'|'1d';
+interface ReferenceCandles {source:'BINANCE';market:string;interval:CandleInterval;fetchedAt:string;candles:Candle[]}
+const intervals:[CandleInterval,string][]=[['1m','1분'],['5m','5분'],['15m','15분'],['1h','1시간'],['4h','4시간'],['1d','1일']];
 
 /** 외부 위젯 대신 플랫폼이 검증한 Binance 기준 봉을 그린다.
  * 기준 차트는 자체 호가·체결 가격의 권위가 아니며, 숫자 변환은 캔버스 좌표에만 사용한다. */
 export default function MarketChart() {
   const container=useRef<HTMLDivElement>(null);
   const {base}=useMarket();
-  const [empty,setEmpty]=useState(true),[error,setError]=useState(false);
-  const [fetchedAt,setFetchedAt]=useState<string|null>(null);
+  const [candleInterval,setCandleInterval]=useState<CandleInterval>('1m');
+  const [status,setStatus]=useState({key:'',fetchedAt:'',empty:true,error:false});
   const previous=useRef<Candle[]>([]);
   const series=useRef<ISeriesApi<'Candlestick'>|null>(null);
   useEffect(()=> {
@@ -22,11 +24,16 @@ export default function MarketChart() {
   },[]);
   useEffect(()=> {
     const abort=new AbortController();
-    const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles`,{signal:abort.signal,credentials:'same-origin'})
+    // 거래쌍이나 봉 간격을 바꾼 직후에는 이전 시장의 캔들을 지운다. 새 응답이
+    // 오기 전까지 과거 선택의 차트를 현재 선택처럼 보여주지 않는다.
+    previous.current=[];series.current?.setData([]);
+    const selection=`${base}:${candleInterval}`;
+    const query=new URLSearchParams({interval:candleInterval});
+    const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles?${query}`,{signal:abort.signal,credentials:'same-origin'})
       .then(response=>{if(!response.ok)throw new Error();return response.json() as Promise<ReferenceCandles>;})
       .then(reference=> {
         if(abort.signal.aborted)return;
-        if(reference.source!=='BINANCE'||reference.market!==`${base}/USDT`||reference.interval!=='1m'||!Array.isArray(reference.candles))throw new Error();
+        if(reference.source!=='BINANCE'||reference.market!==`${base}/USDT`||reference.interval!==candleInterval||!Array.isArray(reference.candles))throw new Error();
         const candles=reference.candles;
         const point=(c:Candle)=>({time:c.time as UTCTimestamp,open:Number(c.open),high:Number(c.high),low:Number(c.low),close:Number(c.close)});
         const old=previous.current;
@@ -36,14 +43,21 @@ export default function MarketChart() {
         if(unchanged) candles.slice(old.length-1).forEach(c=>series.current?.update(point(c)));
         else series.current?.setData(candles.map(point));
         previous.current=candles;
-        setFetchedAt(reference.fetchedAt);setEmpty(candles.length===0);setError(false);
-      }).catch(()=>{if(!abort.signal.aborted)setError(true);});
+        setStatus({key:selection,fetchedAt:reference.fetchedAt,empty:candles.length===0,error:false});
+      }).catch(()=>{if(!abort.signal.aborted)setStatus({key:selection,fetchedAt:'',empty:true,error:true});});
     void load();const timer=setInterval(load,15000);
     return()=>{clearInterval(timer);abort.abort();};
-  },[base]);
+  },[base,candleInterval]);
+  const selection=`${base}:${candleInterval}`,current=status.key===selection;
   return <section className="h-full min-h-64 relative bg-[#0b0e11] border border-[#2b3139] p-2">
-    <p className="text-xs text-gray-400 mb-1">{base}/USDT · Binance 외부 기준 시세 · 1분 봉{fetchedAt?` · ${new Date(fetchedAt).toLocaleTimeString('ko-KR')} 갱신`:''}</p>
-    <div ref={container} className="h-[calc(100%-24px)] min-h-56" aria-label={`${base} Binance 기준 차트`} />
-    {(empty||error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{error?'Binance 기준 시세를 불러오지 못했습니다.':'표시할 외부 기준 봉이 없습니다.'}</p>}
+    <div className="mb-1 min-w-0">
+      <p className="truncate text-xs text-gray-400">{base}/USDT · Binance 외부 기준 시세 · 최근 500봉{current&&status.fetchedAt?` · ${new Date(status.fetchedAt).toLocaleTimeString('ko-KR')} 갱신`:''}</p>
+      <div className="mt-1 flex items-center gap-1 overflow-x-auto text-xs" aria-label="차트 봉 간격">
+        <span className="mr-1 shrink-0 text-gray-500">기간</span>
+        {intervals.map(([value,label])=><button key={value} type="button" onClick={()=>setCandleInterval(value)} aria-pressed={candleInterval===value} className={`shrink-0 rounded px-2 py-1 ${candleInterval===value?'bg-[#2b3139] text-[#f0b90b]':'text-gray-400 hover:bg-[#1e2329] hover:text-white'}`}>{label}</button>)}
+      </div>
+    </div>
+    <div ref={container} className="h-[calc(100%-52px)] min-h-48" aria-label={`${base} Binance 기준 차트`} />
+    {(!current||status.empty||status.error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{!current?'기준 시세를 불러오는 중입니다.':status.error?'Binance 기준 시세를 불러오지 못했습니다.':'표시할 외부 기준 봉이 없습니다.'}</p>}
   </section>;
 }

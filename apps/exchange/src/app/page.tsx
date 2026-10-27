@@ -12,7 +12,6 @@ type TabType = 'chart' | 'orderbook' | 'order';
 
 export default function Home() {
   const {base,setBase}=useMarket();
-  const selectedMarket=`${base}/USDT`;
   const [activeTab, setActiveTab] = useState<TabType>('chart');
   const [showAssetList, setShowAssetList] = useState(false);
 
@@ -29,7 +28,7 @@ export default function Home() {
             {/* 차트 영역 */}
             <div className="flex-[1.55] min-h-0">
               <div className="h-12 px-4 border-b border-[#2b3139] flex items-center">
-                <div className="flex items-center gap-3"><h2 className="text-lg font-semibold text-white">{selectedMarket}</h2><MarketSelector base={base} setBase={setBase}/></div>
+                <MarketSelector base={base} setBase={setBase}/>
               </div>
               <div className="h-[calc(100%-3rem)]">
                 <MarketChart />
@@ -57,8 +56,8 @@ export default function Home() {
       {/* 모바일 레이아웃 (업비트 스타일) */}
       <div className="lg:hidden flex flex-col h-[calc(100vh-4rem)]">
         {/* 상단: 마켓 정보 + 자산 버튼 */}
-        <div className="flex-shrink-0 bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2"><h2 className="text-base font-semibold text-white">{selectedMarket}</h2><MarketSelector base={base} setBase={setBase}/></div>
+        <div className="flex-shrink-0 gap-3 bg-gray-800 border-b border-gray-700 px-3 sm:px-4 py-3 flex items-center justify-between">
+          <MarketSelector base={base} setBase={setBase}/>
           <button
             onClick={() => setShowAssetList(!showAssetList)}
             className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded transition-colors"
@@ -139,13 +138,13 @@ export default function Home() {
 
           {/* 주문 탭: 왼쪽 체결내역 + 오른쪽 주문 패널 */}
           {activeTab === 'order' && (
-            <div className="h-full flex gap-2 p-2">
+            <div className="grid h-full min-h-0 grid-rows-[minmax(8rem,0.35fr)_minmax(0,1fr)] gap-2 p-2 sm:grid-cols-2 sm:grid-rows-1">
               {/* 왼쪽: 체결 내역 */}
-              <div className="flex-1 min-w-0">
+              <div className="min-h-0 min-w-0">
                 <TradeHistory />
               </div>
               {/* 오른쪽: 주문 패널 */}
-              <div className="flex-1 min-w-0">
+              <div className="min-h-0 min-w-0">
                 <OrderPanel />
               </div>
             </div>
@@ -157,6 +156,6 @@ export default function Home() {
 }
 
 function MarketSelector({base,setBase}:{base:'BTC'|'ETH';setBase:(base:'BTC'|'ETH')=>void}){
-  return <label className="text-xs text-gray-400">시장 <select aria-label="거래 시장" value={base} onChange={event=>setBase(event.target.value as 'BTC'|'ETH')} className="ml-1 rounded bg-gray-800 border border-gray-600 px-2 py-1 text-white"><option value="BTC">BTC/USDT</option><option value="ETH">ETH/USDT</option></select></label>;
+  return <label className="min-w-0"><span className="sr-only">거래 시장</span><select aria-label="거래 시장" value={base} onChange={event=>setBase(event.target.value as 'BTC'|'ETH')} className="block max-w-full rounded-md border border-[#474d57] bg-[#1e2329] px-3 py-2 text-sm font-semibold text-white outline-none focus:border-[#f0b90b]"><option value="BTC">BTC/USDT</option><option value="ETH">ETH/USDT</option></select></label>;
 }
 
