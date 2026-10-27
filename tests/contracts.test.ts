@@ -1,10 +1,11 @@
 import {test,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {ApiClient,ApiError,SessionState} from '../apps/exchange/src/lib/api.ts';
+import {ApiClient,ApiError,SessionState,customerErrorMessage} from '../apps/exchange/src/lib/api.ts';
 import {acceptSnapshot} from '../apps/exchange/src/lib/market.ts';
 import type {MarketView} from '../apps/exchange/src/lib/market.ts';
 import {marketSocketUrl} from '../apps/exchange/src/lib/platform.ts';
-import {credentialJson,decodeCreationOptions,decodeRequestOptions} from '../packages/ui/src/webauthn.ts';
+import {credentialJson,decodeCreationOptions,decodeRequestOptions,registrationJson} from '../packages/ui/src/webauthn.ts';
+import {validateCustomerPassword} from '../apps/exchange/src/lib/password.ts';
 
 beforeEach(()=> {
   const values=new Map<string,string>();
@@ -19,6 +20,14 @@ test('로그인 뒤 브라우저에는 토큰이 아니라 세션 힌트만 저�
   globalThis.fetch=async()=>response({user:{id:1},message:'ok'});
   await new ApiClient().signin({email:'user@local.test',password:'test'});
   assert.equal(SessionState.hasSession(),true);assert.equal(localStorage.getItem('access_token'),null);assert.equal(localStorage.getItem('refresh_token'),null);
+});
+test('회원가입 비밀번호를 플랫폼과 같은 유니코드 기준으로 검증한다',()=> {
+  assert.equal(validateCustomerPassword('12345678901234').valid,false);
+  assert.equal(validateCustomerPassword('123456789012345').valid,true);
+  assert.equal(validateCustomerPassword('😀12345678901234').valid,true);
+  assert.equal(validateCustomerPassword('12345678901234\n').valid,false);
+  assert.equal(validateCustomerPassword(`12345678901234${String.fromCharCode(0xd800)}`).valid,false);
+  assert.equal(validateCustomerPassword('a'.repeat(257)).valid,false);
 });
 test('잔액 배열과 페이지 주문 응답을 정확히 읽고 큰 ID를 문자열로 유지한다',async()=> {
   const client=new ApiClient();
@@ -55,6 +64,11 @@ test('명시적인 입력 거부와 결과 불명 오류를 구분할 수 있다
   globalThis.fetch=async()=>response({message:'잘못된 수량'},400);
   await assert.rejects(()=>new ApiClient().createOrder(request,'same-key'),error=>error instanceof ApiError && error.status===400);
 });
+test('플랫폼의 포괄적인 영문 오류를 고객이 이해할 한국어로 표시한다',()=> {
+  assert.equal(customerErrorMessage(503,{error:'Service Unavailable'}),'필요한 외부 서비스 또는 내부 처리기가 준비되지 않아 지금은 진행할 수 없습니다.');
+  assert.equal(customerErrorMessage(403,{message:'forbidden'}),'현재 계정 상태와 보안 조건으로 요청을 진행할 수 없습니다.');
+  assert.equal(customerErrorMessage(400,{message:'수량을 확인하세요'}),'수량을 확인하세요');
+});
 function view(sequence:string,engine='engine'):MarketView {return {book:{engine_id:engine,sequence,previous_sequence:'0',base_mint:'BTC',quote_mint:'USDT',timestamp:'2026-10-21T00:00:00Z',bids:[],asks:[]},trades:[]};}
 test('큰 순번의 중복·역순은 무시하고 누락 뒤에는 전체 스냅샷으로 바꾼다',()=> {
   const current=view('9007199254740993');assert.equal(acceptSnapshot(current,view('9007199254740992')),current);
@@ -90,4 +104,9 @@ test('보안키 등록 옵션의 사용자와 제외 키 식별자를 바이트�
   const options=decodeCreationOptions({challenge:'AQID',rp:{name:'CEX'},user:{id:'BAUG',name:'user',displayName:'user'},pubKeyCredParams:[],excludeCredentials:[{type:'public-key',id:'BwgJ'}]});
   assert.deepEqual([...new Uint8Array(options.user.id)],[4,5,6]);
   assert.deepEqual([...new Uint8Array(options.excludeCredentials![0].id)],[7,8,9]);
+});
+test('보안키 등록은 서명과 다른 표준 등록 봉투로 보낸다',()=>{
+  const key={toJSON:()=>({id:'key',rawId:'key',type:'public-key'})} as unknown as Credential;
+  assert.deepEqual(registrationJson(key,'운영자 보안키'),{credential:{id:'key',rawId:'key',type:'public-key'},label:'운영자 보안키'});
+  assert.throws(()=>registrationJson(key,''));
 });

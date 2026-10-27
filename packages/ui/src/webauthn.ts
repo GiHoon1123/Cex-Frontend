@@ -20,3 +20,12 @@ export function credentialJson(credential:Credential):unknown {
   if(typeof serializable.toJSON!=='function')throw new Error('이 브라우저는 보안키 응답 직렬화를 지원하지 않습니다');
   return serializable.toJSON();
 }
+
+/**
+ * Spring Security 등록 검증기가 요구하는 이름과 자격 증명 묶음을 만든다.
+ * 인증 서명은 자격 증명 자체를 보내지만 등록은 장치 목록에 표시할 이름도 함께 필요하다.
+ */
+export function registrationJson(credential:Credential,label:string):unknown {
+  if(!label.trim()||label.length>100)throw new Error('보안키 이름은 1자 이상 100자 이하여야 합니다');
+  return {credential:credentialJson(credential),label};
+}

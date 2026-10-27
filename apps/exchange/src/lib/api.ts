@@ -32,6 +32,21 @@ export class ApiError extends Error {
 }
 function csrfCookie(){return document.cookie.split('; ').find(value=>value.startsWith('cex_csrf='))?.slice('cex_csrf='.length)??null;}
 
+/** 플랫폼의 내부 상태 문구를 그대로 노출하지 않고 고객이 취할 수 있는 행동으로 바꾼다. */
+export function customerErrorMessage(status:number,body:Record<string,unknown>):string {
+  const detail=typeof body.message==='string'?body.message:typeof body.error==='string'?body.error:'';
+  // 플랫폼이 구체적인 한국어 업무 사유를 준 경우에는 그 설명을 보존한다.
+  if(detail&&/[\u3131-\uD79D]/.test(detail))return detail;
+  if(status===400)return '입력값과 필수 조건을 확인해 주세요.';
+  if(status===401)return '로그인 세션이 만료됐습니다. 다시 로그인해 주세요.';
+  if(status===403)return '현재 계정 상태와 보안 조건으로 요청을 진행할 수 없습니다.';
+  if(status===404)return '요청한 정보가 아직 없습니다.';
+  if(status===409)return '이미 처리된 요청이거나 현재 상태와 충돌합니다.';
+  if(status===429)return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
+  if(status===503)return '필요한 외부 서비스 또는 내부 처리기가 준비되지 않아 지금은 진행할 수 없습니다.';
+  return detail||`요청에 실패했습니다 (${status}).`;
+}
+
 export class ApiClient {
   private refreshing:Promise<void>|null=null;
   private async csrf(){let token=csrfCookie();if(token)return token;const response=await fetch('/api/session/csrf',{credentials:'same-origin'});if(!response.ok)throw new ApiError(response.status,'요청 보호 토큰을 만들지 못했습니다');token=(await response.json()).token;return token!;}
@@ -40,7 +55,7 @@ export class ApiClient {
     if(options.method&&options.method!=='GET'&&options.method!=='HEAD')headers.set('X-CSRF-Token',await this.csrf());
     const response=await fetch(`/api/platform${endpoint}`,{...options,headers,credentials:'same-origin',signal:options.signal??AbortSignal.timeout(10000)});
     if(response.status===401&&retry&&SessionState.hasSession()&&!endpoint.startsWith('/api/auth/')){this.refreshing??=this.refresh().then(()=>{}).finally(()=>{this.refreshing=null;});await this.refreshing;return this.request(endpoint,options,false);}
-    if(!response.ok){const body=await response.json().catch(()=>({}));if(response.status===401)SessionState.set(false);throw new ApiError(response.status,body.message??body.error??`요청 실패 (${response.status})`);}
+    if(!response.ok){const body=await response.json().catch(()=>({})) as Record<string,unknown>;if(response.status===401)SessionState.set(false);throw new ApiError(response.status,customerErrorMessage(response.status,body));}
     return response;
   }
   private async json<T>(path:string,options:RequestInit={}):Promise<T>{return (await this.request(path,options)).json();}

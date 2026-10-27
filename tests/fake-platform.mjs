@@ -7,6 +7,8 @@ const server=createServer((request,response)=>{
   if(request.url==='/api/health/live')return json(response,200,{status:'UP'});
   if(request.url==='/api/auth/signin'&&request.method==='POST')return json(response,200,{accessToken:'pending-access',refreshToken:'pending-refresh',user:{id:7,email:'operator@example.com',username:'operator'},message:'추가 인증 필요'});
   if(request.url==='/api/auth/operator-mfa/authenticate/options'&&request.method==='POST'&&pending)return json(response,200,{challengeId:'123e4567-e89b-12d3-a456-426614174000',publicKey:{challenge:'AQID',timeout:60000,rpId:'127.0.0.1',allowCredentials:[],userVerification:'required'}});
+  if(request.url==='/api/auth/operator-mfa/register/options'&&request.method==='POST'&&pending)return json(response,200,{challengeId:'123e4567-e89b-12d3-a456-426614174001',publicKey:{challenge:'AQID',rp:{name:'CEX',id:'127.0.0.1'},user:{id:'BAUG',name:'operator@example.com',displayName:'operator'},pubKeyCredParams:[{type:'public-key',alg:-7}],authenticatorSelection:{userVerification:'required'}}});
+  if(request.url==='/api/auth/operator-mfa/register'&&request.method==='POST'&&pending){response.writeHead(200);return response.end();}
   if(request.url==='/api/auth/operator-mfa/authenticate'&&request.method==='POST'&&pending)return json(response,200,{accessToken:'admin-access',refreshToken:'admin-refresh',message:'추가 인증 성공'});
   if(request.url==='/api/auth/logout'&&request.method==='POST')return json(response,200,{message:'로그아웃 성공'});
   if(!authorized)return json(response,401,{message:'인증이 필요합니다'});

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { apiClient, SignupRequest } from '@/lib/api';
+import { validateCustomerPassword } from '@/lib/password';
 
 interface SignupModalProps {
   onClose: () => void;
@@ -29,8 +30,9 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
       return;
     }
 
-    if (formData.password.length < 6) {
-      setError('비밀번호는 6자 이상이어야 합니다.');
+    const passwordPolicy = validateCustomerPassword(formData.password);
+    if (!passwordPolicy.valid) {
+      setError(passwordPolicy.message ?? '비밀번호 정책을 확인해 주세요.');
       return;
     }
 
@@ -64,8 +66,8 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+    <div className="fixed inset-0 bg-black/75 flex items-center justify-center z-50 p-4">
+      <div className="bg-[#181a20] border border-[#2b3139] rounded-lg p-6 w-full max-w-md shadow-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-white">회원가입</h2>
           <button
@@ -93,7 +95,7 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
               name="username"
               value={formData.username}
               onChange={handleChange}
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
               placeholder="사용자명을 입력하세요"
             />
           </div>
@@ -109,7 +111,7 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
               value={formData.email}
               onChange={handleChange}
               required
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
               placeholder="user@example.com"
             />
           </div>
@@ -125,8 +127,8 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
               value={formData.password}
               onChange={handleChange}
               required
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
-              placeholder="비밀번호를 입력하세요 (6자 이상)"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
+              placeholder="비밀번호를 입력하세요 (15자 이상)"
             />
           </div>
 
@@ -141,7 +143,7 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
               value={confirmPassword}
               onChange={handleChange}
               required
-              className="w-full bg-gray-700 border border-gray-600 rounded px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#0b0e11] border border-[#474d57] rounded px-4 py-2 text-white focus:outline-none focus:border-[#f0b90b]"
               placeholder="비밀번호를 다시 입력하세요"
             />
           </div>
@@ -149,7 +151,7 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-[#f0b90b] hover:bg-[#f8d33a] text-[#0b0e11] font-semibold py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? '가입 중...' : '회원가입'}
           </button>
@@ -159,7 +161,7 @@ export default function SignupModal({ onClose, onSuccess, onSwitchToLogin }: Sig
           <span className="text-gray-400">이미 계정이 있으신가요? </span>
           <button
             onClick={onSwitchToLogin}
-            className="text-blue-500 hover:text-blue-400 font-semibold"
+            className="text-[#f0b90b] hover:text-[#f8d33a] font-semibold"
           >
             로그인
           </button>

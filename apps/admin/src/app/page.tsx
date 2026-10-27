@@ -2,7 +2,7 @@
 
 import {FormEvent,useEffect,useState} from 'react';
 import {Brand,Section,StateBadge} from '@cex/ui';
-import {credentialJson,decodeRequestOptions} from '@cex/ui/webauthn';
+import {credentialJson,decodeCreationOptions,decodeRequestOptions,registrationJson} from '@cex/ui/webauthn';
 import {adminApi,EthereumPayoutReview,OperationsStatus,User} from '@/lib/api';
 
 export default function AdminPage(){
@@ -19,12 +19,33 @@ export default function AdminPage(){
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
-  async function login(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{await adminApi.signin(String(data.get('email')),String(data.get('password')));const options=await adminApi.operatorMfaOptions();const credential=await navigator.credentials.get({publicKey:decodeRequestOptions(options.publicKey)});if(!credential)throw new Error('운영자 보안키 확인이 취소됐습니다');await adminApi.operatorMfaAuthenticate(options.challengeId,credentialJson(credential));await load();}catch(problem){setError(problem instanceof Error?problem.message:'로그인에 실패했습니다');}}
+  async function login(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    const data=new FormData(event.currentTarget),enrollmentToken=String(data.get('enrollmentToken')??'').trim();
+    setError('');
+    try{
+      await adminApi.signin(String(data.get('email')),String(data.get('password')));
+      if(enrollmentToken){
+        // 최초 등록 비밀은 비밀번호와 별도로 받은 일회성 값이다. 브라우저가
+        // 만든 공개키만 서버에 보내고, 개인키는 보안키에서 밖으로 나오지 않는다.
+        const registration=await adminApi.operatorMfaRegistrationOptions(enrollmentToken);
+        const created=await navigator.credentials.create({publicKey:decodeCreationOptions(registration.publicKey)});
+        if(!created)throw new Error('운영자 보안키 등록이 취소됐습니다');
+        await adminApi.operatorMfaRegister(registration.challengeId,registrationJson(created,'운영자 보안키'));
+      }
+      // 등록과 로그인 인증을 분리해, 일회 등록 권한만 탈취한 사용자가 운영 API를 열지 못하게 한다.
+      const options=await adminApi.operatorMfaOptions();
+      const credential=await navigator.credentials.get({publicKey:decodeRequestOptions(options.publicKey)});
+      if(!credential)throw new Error('운영자 보안키 확인이 취소됐습니다');
+      await adminApi.operatorMfaAuthenticate(options.challengeId,credentialJson(credential));
+      await load();
+    }catch(problem){setError(problem instanceof Error?problem.message:'로그인에 실패했습니다');}
+  }
   async function proposeEthereum(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{const review=await adminApi.proposeEthereumPayout(String(data.get('withdrawalId')),Number(data.get('checkerId')),String(data.get('reason')));setEthereumReview(review);}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 검토를 만들지 못했습니다');}}
   async function inspectEthereum(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);setError('');try{setEthereumReview(await adminApi.inspectEthereumPayout(String(data.get('reviewId'))));}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 검토를 읽지 못했습니다');}}
   async function decideEthereum(approve:boolean){if(!ethereumReview)return;setError('');try{const options=await adminApi.ethereumPayoutOptions(ethereumReview.payload.id,ethereumReview.payloadHash,approve);const credential=await navigator.credentials.get({publicKey:decodeRequestOptions(options.authentication.publicKey)});if(!credential)throw new Error('승인 보안키 확인이 취소됐습니다');setEthereumReview(await adminApi.decideEthereumPayout(ethereumReview.payload.id,ethereumReview.payloadHash,approve,{challengeId:options.authentication.challengeId,credential:credentialJson(credential)}));}catch(problem){setError(problem instanceof Error?problem.message:'ETH 지급 결정을 완료하지 못했습니다');}}
   if(loading)return <main className="min-h-screen grid place-items-center text-gray-400">운영 상태를 확인하고 있습니다.</main>;
-  if(!user)return <main className="min-h-screen grid place-items-center p-6"><form onSubmit={login} className="w-full max-w-sm rounded-lg border border-gray-700 bg-[#181a20] p-6 space-y-4"><Brand label="CEX 운영자"/><p className="text-sm text-gray-400">승인된 운영자 계정과 추가 인증 장치가 필요합니다.</p><input name="email" type="email" required placeholder="이메일" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/><input name="password" type="password" required placeholder="비밀번호" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/>{error&&<p role="alert" className="text-sm text-red-400">{error}</p>}<button className="w-full rounded bg-yellow-500 py-3 font-semibold text-black">로그인</button></form></main>;
+  if(!user)return <main className="min-h-screen grid place-items-center p-6"><form onSubmit={login} className="w-full max-w-sm rounded-lg border border-gray-700 bg-[#181a20] p-6 space-y-4"><Brand label="CEX 운영자"/><p className="text-sm text-gray-400">승인된 운영자 계정과 추가 인증 장치가 필요합니다.</p><input name="email" type="email" required placeholder="이메일" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/><input name="password" type="password" required placeholder="비밀번호" className="w-full rounded bg-[#0b0e11] border border-gray-600 p-3"/><label className="block text-xs text-gray-400">최초 등록만 입력<input name="enrollmentToken" type="password" minLength={43} maxLength={256} placeholder="일회성 최초 등록 비밀" className="mt-1 w-full rounded bg-[#0b0e11] border border-gray-600 p-3 text-sm text-white"/></label>{error&&<p role="alert" className="text-sm text-red-400">{error}</p>}<button className="w-full rounded bg-yellow-500 py-3 font-semibold text-black">로그인</button></form></main>;
   return <main className="min-h-screen">
     <header className="border-b border-gray-800 bg-[#181a20] px-6 py-4 flex justify-between"><Brand label="CEX 운영 통제"/><div className="text-sm text-gray-400">{user.email} <button className="ml-4 text-yellow-500" onClick={async()=>{await adminApi.logout();location.reload();}}>로그아웃</button></div></header>
     <div className="p-6 grid gap-5 xl:grid-cols-2">
