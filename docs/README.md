@@ -19,6 +19,7 @@
 - [실제 브라우저 사용자 흐름 복구](decisions/007-browser-flow-recovery.md): 회원가입 정책, 자체 BTC 체결·차트, 운영자 최초 보안키, 바이낸스 다크 레이아웃의 실제 Chrome 검증.
 - [Binance 기준 차트와 자체 호가 분리](decisions/008-binance-reference-chart.md): 플랫폼이 중계한 BTC·ETH 외부 기준 봉, 출처·갱신·장애 표시와 브라우저 직접 호출 차단.
 - [반응형 차트 기간 선택](decisions/009-responsive-chart-periods.md): 분·시간·일·주·월봉 선택, 좁은 화면의 헤더·시장 선택·주문 패널 보정과 다섯 화면 폭 회귀.
+- [개발 화면 무한 새로고침 차단](decisions/010-development-reload-loop.md): HMR 해시 불일치 원인, Webpack 개발 경로, 격리 출력과 문서 이동 회귀 검증.
 
 ## 2026-10-23 실제 코드 발췌 보강
 
