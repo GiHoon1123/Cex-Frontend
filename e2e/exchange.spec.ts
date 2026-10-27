@@ -64,9 +64,10 @@ test('플랫폼이 중계한 Binance 기준 봉을 그리고 브라우저가 Bin
   await expect(page.getByText('BTC/USDT · Binance 외부 기준 시세',{exact:false}).first()).toBeVisible();
   await expect(page.getByText('자체 호가창 · BTC/USDT').first()).toBeVisible();
   await expect(page.getByText('최근 자체 체결').first()).toBeVisible();
-  for(const interval of ['5분','15분','1시간','4시간','1일']) {
+  const values:Record<string,string>={'5분':'5m','15분':'15m','1시간':'1h','4시간':'4h','1일':'1d','1주':'1w','1개월':'1M'};
+  for(const interval of Object.keys(values)) {
     await page.getByRole('button',{name:interval,exact:true}).first().click();
-    await expect.poll(()=>requests.some(url=>url.includes(`interval=${interval==='5분'?'5m':interval==='15분'?'15m':interval==='1시간'?'1h':interval==='4시간'?'4h':'1d'}`))).toBe(true);
+    await expect.poll(()=>requests.some(url=>new URL(url).searchParams.get('interval')===values[interval])).toBe(true);
   }
   expect(errors).toEqual([]);expect(requests.some(url=>url.includes('tv.js')||url.includes('binance'))).toBe(false);
 });
@@ -77,7 +78,7 @@ test('작은 화면에서도 헤더·시장 선택·차트 기간·주문 영역
   for(const viewport of [{width:320,height:720},{width:375,height:812},{width:768,height:900},{width:1024,height:768},{width:1440,height:900}]) {
     await page.setViewportSize(viewport);await page.goto('/');
     await expect(page.locator('select[aria-label="거래 시장"]:visible')).toBeVisible();
-    await expect(page.getByRole('button',{name:'1일',exact:true})).toBeVisible();
+    await expect(page.getByRole('button',{name:'1개월',exact:true})).toBeVisible();
     const layout=await page.evaluate(()=>({viewport:innerWidth,document:document.documentElement.scrollWidth,
       header:[...document.querySelectorAll('header a, header button')].map(element=>element.getBoundingClientRect()).filter(rect=>rect.width>0&&rect.height>0).map(rect=>({left:rect.left,right:rect.right,height:rect.height})),
       selector:(()=>{const element=[...document.querySelectorAll<HTMLSelectElement>('select[aria-label="거래 시장"]')].find(item=>item.getBoundingClientRect().width>0)!;const rect=element.getBoundingClientRect();return{left:rect.left,right:rect.right};})()}));

@@ -3,9 +3,9 @@ import {useEffect,useRef,useState} from 'react';
 import {CandlestickSeries,ColorType,createChart,UTCTimestamp,ISeriesApi} from 'lightweight-charts';
 import {useMarket} from '@/contexts/MarketContext';
 interface Candle {time:number;open:string;high:string;low:string;close:string;volume:string}
-type CandleInterval='1m'|'5m'|'15m'|'1h'|'4h'|'1d';
+type CandleInterval='1m'|'5m'|'15m'|'1h'|'4h'|'1d'|'1w'|'1M';
 interface ReferenceCandles {source:'BINANCE';market:string;interval:CandleInterval;fetchedAt:string;candles:Candle[]}
-const intervals:[CandleInterval,string][]=[['1m','1분'],['5m','5분'],['15m','15분'],['1h','1시간'],['4h','4시간'],['1d','1일']];
+const intervals:[CandleInterval,string][]=[['1m','1분'],['5m','5분'],['15m','15분'],['1h','1시간'],['4h','4시간'],['1d','1일'],['1w','1주'],['1M','1개월']];
 
 /** 외부 위젯 대신 플랫폼이 검증한 Binance 기준 봉을 그린다.
  * 기준 차트는 자체 호가·체결 가격의 권위가 아니며, 숫자 변환은 캔버스 좌표에만 사용한다. */
@@ -51,13 +51,13 @@ export default function MarketChart() {
   const selection=`${base}:${candleInterval}`,current=status.key===selection;
   return <section className="h-full min-h-64 relative bg-[#0b0e11] border border-[#2b3139] p-2">
     <div className="mb-1 min-w-0">
-      <p className="truncate text-xs text-gray-400">{base}/USDT · Binance 외부 기준 시세 · 최근 500봉{current&&status.fetchedAt?` · ${new Date(status.fetchedAt).toLocaleTimeString('ko-KR')} 갱신`:''}</p>
-      <div className="mt-1 flex items-center gap-1 overflow-x-auto text-xs" aria-label="차트 봉 간격">
+      <p className="truncate text-xs text-gray-400">{base}/USDT · Binance 외부 기준 시세 · 최대 500봉{current&&status.fetchedAt?` · ${new Date(status.fetchedAt).toLocaleTimeString('ko-KR')} 갱신`:''}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-1 text-xs" aria-label="차트 봉 간격">
         <span className="mr-1 shrink-0 text-gray-500">기간</span>
         {intervals.map(([value,label])=><button key={value} type="button" onClick={()=>setCandleInterval(value)} aria-pressed={candleInterval===value} className={`shrink-0 rounded px-2 py-1 ${candleInterval===value?'bg-[#2b3139] text-[#f0b90b]':'text-gray-400 hover:bg-[#1e2329] hover:text-white'}`}>{label}</button>)}
       </div>
     </div>
-    <div ref={container} className="h-[calc(100%-52px)] min-h-48" aria-label={`${base} Binance 기준 차트`} />
+    <div ref={container} className="h-[calc(100%-78px)] min-h-44 sm:h-[calc(100%-52px)] sm:min-h-48" aria-label={`${base} Binance 기준 차트`} />
     {(!current||status.empty||status.error)&&<p className="absolute top-1/2 left-0 right-0 text-center text-gray-400 text-sm pointer-events-none">{!current?'기준 시세를 불러오는 중입니다.':status.error?'Binance 기준 시세를 불러오지 못했습니다.':'표시할 외부 기준 봉이 없습니다.'}</p>}
   </section>;
 }
