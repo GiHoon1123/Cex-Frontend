@@ -1,22 +1,23 @@
 import {test,beforeEach} from 'node:test';
 import assert from 'node:assert/strict';
-import {ApiClient,ApiError,TokenStorage} from '../src/lib/api.ts';
-import {acceptSnapshot} from '../src/lib/market.ts';
-import type {MarketView} from '../src/lib/market.ts';
-import {marketSocketUrl} from '../src/lib/platform.ts';
+import {ApiClient,ApiError,SessionState} from '../apps/exchange/src/lib/api.ts';
+import {acceptSnapshot} from '../apps/exchange/src/lib/market.ts';
+import type {MarketView} from '../apps/exchange/src/lib/market.ts';
+import {marketSocketUrl} from '../apps/exchange/src/lib/platform.ts';
 
 beforeEach(()=> {
   const values=new Map<string,string>();
   Object.defineProperty(globalThis,'window',{configurable:true,value:{dispatchEvent:()=>{}}});
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{cookie:'cex_csrf=test-token'}});
   Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>values.set(key,value),removeItem:(key:string)=>values.delete(key)}});
 });
 const request={orderType:'buy',orderSide:'limit',baseMint:'BTC',quoteMint:'USDT',price:'60000',amount:'0.001'} as const;
 const response=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{'Content-Type':'application/json'}});
 
-test('플랫폼 로그인 응답의 정식 필드로 토큰을 저장한다',async()=> {
-  globalThis.fetch=async()=>response({accessToken:'access',refreshToken:'refresh',user:{id:1}});
+test('로그인 뒤 브라우저에는 토큰이 아니라 세션 힌트만 저장한다',async()=> {
+  globalThis.fetch=async()=>response({user:{id:1},message:'ok'});
   await new ApiClient().signin({email:'user@local.test',password:'test'});
-  assert.equal(TokenStorage.getAccessToken(),'access');assert.equal(TokenStorage.getRefreshToken(),'refresh');
+  assert.equal(SessionState.hasSession(),true);assert.equal(localStorage.getItem('access_token'),null);assert.equal(localStorage.getItem('refresh_token'),null);
 });
 test('잔액 배열과 페이지 주문 응답을 정확히 읽고 큰 ID를 문자열로 유지한다',async()=> {
   const client=new ApiClient();
@@ -37,9 +38,9 @@ test('기존 접수 200과 신규 엔진 접수 201을 구분한다',async()=> {
   assert.equal((await client.createOrder(request,'key')).state,'accepted');
 });
 test('인증 갱신 뒤에도 주문 키를 바꾸지 않는다',async()=> {
-  TokenStorage.setTokens('old','refresh');const keys:string[]=[];
+  SessionState.set(true);const keys:string[]=[];
   globalThis.fetch=async(input,options)=> {
-    if(String(input).includes('/auth/refresh'))return response({accessToken:'new',refreshToken:'new-refresh'});
+    if(String(input).includes('/auth/refresh'))return response({message:'refreshed'});
     keys.push(new Headers(options?.headers).get('Idempotency-Key')!);
     return keys.length===1?response({message:'expired'},401):response({order:{id:'1'}},201);
   };
@@ -67,6 +68,6 @@ test('공개 소켓은 플랫폼 진입 경로를 사용한다',()=> {
   assert.equal(marketSocketUrl('https://exchange.local'),'wss://exchange.local/ws/market/BTC/USDT');
 });
 
-test('인증 저장소 조회 함수를 분리해 구독 콜백으로 전달해도 동작한다',()=> {
-  TokenStorage.setTokens('access','refresh');const snapshot=TokenStorage.hasTokens;assert.equal(snapshot(),true);
+test('세션 힌트 조회 함수를 구독 콜백과 분리해도 동작한다',()=> {
+  SessionState.set(true);const snapshot=SessionState.hasSession;assert.equal(snapshot(),true);
 });

@@ -1,0 +1,3 @@
+module.exports=[47151,a=>{"use strict";var b=a.i(87924),c=a.i(72131),d=a.i(23569),e=a.i(55380);a.s(["default",0,function(){let[a,f]=(0,c.useState)(null),[g,h]=(0,c.useState)("");return(0,c.useEffect)(()=>{d.k.getMe().then(f).catch(()=>h("로그인 후 계정을 확인해주세요."))},[]),(0,b.jsxs)("main",{className:"max-w-3xl mx-auto p-8",children:[(0,b.jsx)("h1",{className:"text-2xl font-semibold mb-6",children:"내 계정"}),g&&(0,b.jsx)("p",{role:"alert",className:"text-red-400",children:g}),a&&(0,b.jsxs)("section",{className:"mb-6 bg-gray-800 rounded-lg p-5",children:[(0,b.jsx)("p",{children:a.email}),(0,b.jsx)("p",{className:"text-gray-400 mt-2",children:a.username})]}),(0,b.jsx)(e.f,{})]})}])}];
+
+//# sourceMappingURL=apps_exchange_src_app_mypage_page_tsx_0bp5_5ath_cxa._.js.map

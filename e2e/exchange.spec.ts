@@ -7,8 +7,8 @@ async function publicRoutes(page:Page,candles:unknown[]=[]) {
   const requests:string[]=[];
   page.on('request',request=>requests.push(request.url()));
   // 모의 플랫폼 출처는 예약 도메인이다. 놓친 요청이 기존 로컬 서비스로 갈 수 없다.
-  await page.route('http://platform.invalid/**',async route=> {
-    const path=new URL(route.request().url()).pathname;
+  await page.route('**/api/platform/**',async route=> {
+    const path=new URL(route.request().url()).pathname.replace('/api/platform','');
     let body:unknown;
     if(path.endsWith('/candles'))body=candles;
     else if(path==='/api/cex/balances')body=[{userId:1,mintAddress:'BTC',available:'1.000000001',locked:'0',total:'1.000000001'},{userId:1,mintAddress:'USDT',available:'1000',locked:'0',total:'1000'}];
@@ -36,10 +36,10 @@ test('자체 호가·체결을 표시하고 역순과 재연결을 안전하게 
   expect(requests.some(url=>/binance|3002|solusdt/i.test(url))).toBe(false);
 });
 test('결과 불명 주문은 새로고침 뒤에도 같은 키·본문으로 확인한다',async({page})=> {
-  await page.addInitScript(()=>{localStorage.setItem('access_token','test-access');localStorage.setItem('refresh_token','test-refresh');});
+  await page.addInitScript(()=>{localStorage.setItem('cex_session_hint','1');});
   await publicRoutes(page);
   const calls:{key:string|undefined;body:string|null}[]=[];
-  await page.route('http://platform.invalid/api/cex/orders',async route=> {
+  await page.route('**/api/platform/api/cex/orders',async route=> {
     const request=route.request();calls.push({key:request.headers()['idempotency-key'],body:request.postData()});
     const order={id:'9007199254740993',status:'pending'};
     await route.fulfill({status:calls.length===1?202:200,json:calls.length===1?{orderId:order.id}:{order},headers:{'access-control-allow-origin':'*'}});
@@ -66,20 +66,21 @@ test('자체 체결 봉으로 차트를 렌더링하고 외부 위젯을 로드�
 });
 
 test('개인 주문 조회와 취소에서도 큰 주문 ID를 문자열로 전달한다',async({page})=> {
-  await page.addInitScript(()=>{localStorage.setItem('access_token','test-access');localStorage.setItem('refresh_token','test-refresh');});
+  await page.addInitScript(()=>{localStorage.setItem('cex_session_hint','1');});
   await publicRoutes(page);let active=true;const cancelled:string[]=[];
   const order={id:'9007199254740993',userId:1,orderType:'buy',orderSide:'limit',baseMint:'BTC',quoteMint:'USDT',price:'60000',amount:'0.001',filledAmount:'0',filledQuoteAmount:'0',status:'pending',createdAt:at,updatedAt:at};
-  await page.route('http://platform.invalid/api/cex/orders/my**',route=> {
+  await page.route('**/api/platform/api/cex/orders/my**',route=> {
     const status=new URL(route.request().url()).searchParams.get('status');
     return route.fulfill({json:{content:active&&status==='pending'?[order]:[]},headers:{'access-control-allow-origin':'*'}});
   });
-  await page.route('http://platform.invalid/api/cex/orders/9007199254740993',route=> {
+  await page.route('**/api/platform/api/cex/orders/9007199254740993',route=> {
     cancelled.push(route.request().url());active=false;
     return route.fulfill({status:202,json:{order},headers:{'access-control-allow-origin':'*'}});
   });
   await page.routeWebSocket('ws://platform.invalid/ws/market/BTC/USDT',socket=>socket.send(JSON.stringify(snapshot())));
   page.on('dialog',dialog=>dialog.accept());await page.goto('/trades');
   await page.getByRole('button',{name:'주문 취소',exact:true}).click();
+  await expect.poll(()=>cancelled.length).toBe(1);
   await expect(page.getByRole('button',{name:'주문 취소',exact:true})).toHaveCount(0);
-  expect(cancelled).toEqual(['http://platform.invalid/api/cex/orders/9007199254740993']);
+  expect(cancelled[0]).toContain('/api/platform/api/cex/orders/9007199254740993');
 });

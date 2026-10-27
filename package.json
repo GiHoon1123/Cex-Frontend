@@ -1,32 +1,21 @@
 {
   "name": "cex-frontend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
+  "type": "module",
+  "workspaces": ["apps/*", "packages/*"],
   "scripts": {
-    "start:dev": "next dev -p 3003",
-    "build": "next build",
-    "start:prod": "next start -p 3003",
-    "lint": "eslint",
+    "start:dev": "npm run dev --workspace @cex/exchange",
+    "start:admin": "npm run dev --workspace @cex/admin",
+    "build": "npm run build --workspace @cex/exchange && npm run build --workspace @cex/admin",
+    "lint": "npm run lint --workspace @cex/exchange && npm run lint --workspace @cex/admin",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "test:e2e": "playwright test"
   },
-  "dependencies": {
-    "decimal.js": "10.6.0",
-    "lightweight-charts": "5.2.1",
-    "next": "16.4.2",
-    "react": "19.2.0",
-    "react-dom": "19.2.0"
-  },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "baseline-browser-mapping": "^2.9.5",
-    "eslint": "^9",
-    "eslint-config-next": "16.4.2",
-    "tailwindcss": "^4",
     "typescript": "^5"
   }
 }

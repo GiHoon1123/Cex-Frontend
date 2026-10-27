@@ -12,6 +12,7 @@
 - [BTC·플랫폼 자체 시세 연결](decisions/001-platform-market-and-btc.md): 브라우저 직접 호출 제거, 자체 호가·체결·차트와 주문 결과 불명 처리, 계약·브라우저 검증.
 
 - [Next 의존성 보안 갱신](decisions/002-next-security-update.md): 수정 버전·감사 결과, Strict Mode 소켓 정리와 재검증, 남은 개발 도구 보고.
+- [모노레포·서버 세션 중계·운영 화면](decisions/003-monorepo-session-and-admin.md): 두 앱의 실행 경계, 브라우저 토큰 제거, CSRF·세션 분리와 작성한 테스트.
 
 ## 2026-10-23 실제 코드 발췌 보강
 

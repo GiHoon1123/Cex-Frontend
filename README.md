@@ -7,9 +7,10 @@ BTC/USDT 거래 화면이다. 계정·주문 HTTP와 자체 호가·체결 WebSo
 ```sh
 npm ci
 npm run start:dev
+npm run start:admin
 ```
 
-프론트는 `http://localhost:3003`, 플랫폼은 `http://localhost:8080`을 사용한다. 다른 플랫폼 주소는 `NEXT_PUBLIC_PLATFORM_URL`로 지정한다. 배포에서 이 값을 비우면 같은 출처의 `/api`·`/ws`를 사용하므로 리버스 프록시에서 플랫폼으로 연결해야 한다.
+고객 앱은 `http://localhost:3003`, 운영자 앱은 `http://localhost:3004`다. 두 앱의 서버 중계는 개발에서 `http://127.0.0.1:8080` 플랫폼을 사용한다. 운영은 `PLATFORM_INTERNAL_URL`, `EXCHANGE_PUBLIC_ORIGIN`, `ADMIN_PUBLIC_ORIGIN`을 모두 명시해야 한다. 실시간 `/ws`는 리버스 프록시에서 플랫폼으로 연결한다.
 
 ```sh
 npm test
@@ -18,13 +19,14 @@ npm run lint
 npm run build
 ```
 
-브라우저 검증은 기존 서비스를 사용하는 대신 별도 Next 포트와 모의 플랫폼을 사용하며 Chrome이 필요하다. 고객·어드민 모노레포 전환은 후속 계획이다. 현재 구현은 고객 앱 하나다.
+브라우저 검증은 기존 서비스를 사용하는 대신 별도 고객·운영자 포트와 모의 플랫폼을 사용하며 Chrome이 필요하다. 인증 토큰은 브라우저 자바스크립트에 노출하지 않고 앱별 서버 전용 쿠키로 분리한다.
 
 ## 문서
 
 - [문서 목차](docs/README.md)
 - [BTC·플랫폼 연결과 테스트](docs/decisions/001-platform-market-and-btc.md)
 - [고객·어드민 프론트 계획](docs/plans/frontend-architecture.md)
+- [모노레포·세션·운영 화면 구현](docs/decisions/003-monorepo-session-and-admin.md)
 
 거래 화면 전환은 BTC 온체인 입출금 구현을 의미하지 않는다. 차트·호가가 비어 있으면 자체 거래 데이터가 아직 없는 상태다.
 
@@ -32,7 +34,7 @@ npm run build
 
 이 문서의 관련 동작을 확인할 현재 코드다. 메서드·설정의 일부이며 독립 실행 예제가 아니다. 계획이나 과거 검토 전체가 구현·검증됐다는 뜻은 아니다.
 
-출처: [market.ts](src/lib/market.ts#L18) · [전체 구현 설명·트레이드오프·작성한 테스트](docs/decisions/001-platform-market-and-btc.md)
+출처: [market.ts](apps/exchange/src/lib/market.ts#L18) · [전체 구현 설명·트레이드오프·작성한 테스트](docs/decisions/001-platform-market-and-btc.md)
 
 ```typescript
   if(current && current.book.engine_id===next.book.engine_id && BigInt(next.book.sequence)<=BigInt(current.book.sequence)) return current;
