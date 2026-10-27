@@ -1,6 +1,6 @@
 # Binance 기준 차트와 자체 호가를 구분해 표시하기
 
-거래 화면의 BTC·ETH 차트는 플랫폼이 중계한 Binance 1분 봉을 표시하고, 호가창과 최근 체결은 계속 우리 거래소 데이터만 표시한다.
+거래 화면의 BTC·ETH 차트는 플랫폼이 중계한 Binance 봉을 표시하고, 호가창과 최근 체결은 계속 우리 거래소 데이터만 표시한다. 기간 선택과 반응형 보완은 [후속 기록](009-responsive-chart-periods.md)에서 설명한다.
 
 ## 문제와 기존 동작
 
@@ -17,13 +17,14 @@ Binance 봉과 자체 호가는 다른 시장이다. 같은 출처처럼 표시�
 [MarketChart](../../apps/exchange/src/components/MarketChart.tsx)는 플랫폼 경로만 호출한다.
 
 ```ts
-const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles`,{
+const query=new URLSearchParams({interval:candleInterval});
+const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles?${query}`,{
   signal:abort.signal,
   credentials:'same-origin'
 });
 ```
 
-15초마다 갱신하며 응답의 `source`, `market`, `interval`을 다시 확인한다. BTC/ETH 전환 시 앞선 요청을 취소하고 해당 시장 전체 봉을 적용한다. 캔버스 좌표를 위해 문자열 금액을 `Number`로 바꾸지만 주문·잔액 계산에는 사용하지 않는다.
+15초마다 갱신하며 응답의 `source`, `market`, `interval`을 다시 확인한다. BTC/ETH 또는 봉 간격 전환 시 앞선 요청을 취소하고 해당 조건의 전체 봉을 적용한다. 캔버스 좌표를 위해 문자열 금액을 `Number`로 바꾸지만 주문·잔액 계산에는 사용하지 않는다.
 
 브라우저는 Binance 도메인을 직접 호출하지 않는다. 플랫폼은 10초 캐시로 외부 호출량을 제한하고, BFF는 기존과 같이 플랫폼 한 곳만 바라본다.
 
@@ -41,7 +42,7 @@ const load=()=>fetch(`/api/platform/api/market/${base}/USDT/reference-candles`,{
 npm test          17개 통과
 npm run lint      통과
 npm run build     고객·어드민 통과
-npm run test:e2e  8개 통과
+npm run test:e2e  9개 통과
 ```
 
 실제 Chrome에서 BTC와 ETH를 전환해 두 시장 모두 Binance 500개 1분 봉이 표시되는 것을 확인했다. 브라우저가 Binance 도메인을 직접 호출한 요청은 0건이었다. BTC 화면에서는 자체 최근 체결 60,000 USDT가 외부 기준 차트와 별도로 표시됐다. 현재 로컬 엔진에는 ETH 시장 스냅샷이 없으므로 ETH 차트는 표시되지만 호가창은 `연결 대기`로 남는 것도 함께 확인했다.
